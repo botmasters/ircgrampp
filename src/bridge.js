@@ -51,25 +51,34 @@ export default class Bridge {
         this._telegramChannel = this._telegramConnector.followChannel(
             telegramChannel);
 
+        this._handlers = {
+            ircMessage: this._handleIRCMessage.bind(this),
+            ircJoin: this._handleIRCJoin.bind(this),
+            ircLeft: this._handleIRCLeft.bind(this),
+            telegramMessage: this._handleTelegramMessage.bind(this),
+            telegramJoin: this._handleTelegramJoin.bind(this),
+            telegramLeft: this._handleTelegramLeft.bind(this),
+        };
+
         this.bind();
 
     }
 
     _handleIRCMessage(user, message) {
         debug("irc in message", user, message);
-        let msg = `[IRC/@${user}] ${message}`;
+        let msg = `[IRC/${user}] ${message}`;
         this._telegramChannel.sendMessage(msg);
     }
 
     _handleIRCJoin(user) {
         debug("irc join", user);
-        let msg = `[IRC] ${user} join`;
+        let msg = `[IRC] ** ${user} join`;
         this._telegramChannel.sendMessage(msg);
     }
 
     _handleIRCLeft(user) {
         debug("irc left", user);
-        let msg = `[IRC] ${user} left the channel`;
+        let msg = `[IRC] ** ${user} left the channel`;
         this._telegramChannel.sendMessage(msg);
     }
 
@@ -91,19 +100,26 @@ export default class Bridge {
 
         // IRC
         this._ircChannel.on("message",
-            this._handleIRCMessage.bind(this));
+            this._handlers.ircMessage);
+
         this._ircChannel.on("join",
-            this._handleIRCJoin.bind(this));
+            this._handlers.ircJoin);
+
         this._ircChannel.on("left",
-            this._handleIRCLeft.bind(this));
+            this._handlers.ircLeft);
 
         // Telegram
+        
         this._telegramChannel.on("message",
-            this._handleTelegramMessage.bind(this));
+            this._handlers.telegramMessage);
+
         this._telegramChannel.on("join",
-            this._handleTelegramJoin.bind(this));
+            this._handlers.telegramJoin);
+
         this._telegramChannel.on("left",
-            this._handleTelegramLeft.bind(this));
+            this._handlers.telegramLeft); 
+        
+
     }
 
 }
