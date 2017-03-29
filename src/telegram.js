@@ -56,20 +56,30 @@ export class TelegramChannel extends EventEmitter {
             this.setData(chatInfo);
         }
 
+
+        this._handlers = {
+            message: this._handleMessage.bind(this),
+            join: this._handleNewParticipant.bind(this),
+            left: this._handleLeftParticipant.bind(this),
+        };
+
         this.bind();
 
     }
 
-    _handleMessage(...args) {
-        this.emit("message", ...args);
+    _handleMessage(user, message) {
+        if (!message) {
+            return;
+        }
+        this.emit("message", user, message);
     }
 
     _handleNewParticipant(...args) {
-        this.emit("newparticipant", ...args);
+        this.emit("join", ...args);
     }
 
     _handleLeftParticipant(...args) {
-        this.emit("leftparticipant", ...args);
+        this.emit("left", ...args);
     }
 
     _handleInfoUpdate(data) {
@@ -84,16 +94,16 @@ export class TelegramChannel extends EventEmitter {
         debug(`unbind channel ${prefix}`);
 
         this._connector.removeListener(`${prefix}:message`,
-            this._handleMessage.bind(this));
+            this._handlers.message);
 
         this._connector.removeListener(`${prefix}:newparticipant`,
-            this._handleNewParticipant.bind(this));
+            this._handleNewParticipant);
 
         this._connector.removeListener(`${prefix}:leftparticipant`,
-            this._handleLeftParticipant.bind(this));
+            this._handleLeftParticipant);
 
         this._connector.removeListener("chatinformationupdate",
-            this._handleInfoUpdate.bind(this));
+            this._handleInfoUpdate);
     }
 
     bind() {
@@ -103,7 +113,7 @@ export class TelegramChannel extends EventEmitter {
         debug(`bind channel ${prefix}`);
 
         this._connector.on(`${prefix}:message`,
-            this._handleMessage.bind(this));
+            this._handlers.message);
 
         this._connector.on(`${prefix}:newparticipant`,
             this._handleNewParticipant.bind(this));

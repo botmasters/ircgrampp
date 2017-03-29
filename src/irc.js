@@ -7,6 +7,8 @@ import config from "./config";
 
 var Promise = require("bluebird");
 
+let instances = [];
+
 const debug = {
     irc: debugLib("irc"),
 };
@@ -36,22 +38,57 @@ export class IRCChannel extends EventEmitter {
         this._connection = connection;
         this._nicks = [connection.nick];
 
-        this._connection.on(`${channel}:join`, (...args) => {
-            this.emit("join", ...args);
-        });
+        this._handlers = {
+            message: this._handleMessage.bind(this),
+            join: this._handleJoin.bind(this),
+            left: this._handleLeft.bind(this),
+            changeNick: this._handleChangeNick.bind(this),
+        };
 
-        this._connection.on(`${channel}:part`, (...args) => {
-            this.emit("part", ...args);
-        });
+        this.bind();
 
-        this._connection.on(`${channel}:message`, (...args) => {
-            this.emit("message", ...args);
-        });
+    }
 
-        this._connection.on("changeMasterNick", (oldNick, newNick) => {
-            this._nicks = this._nicks.filter(n => n !== oldNick);
-            this._nicks.push(newNick);
-        });
+    _handleMessage(nick, message) {
+        if (!message) {
+            return;
+        }
+
+        this.emit("message", nick, message);
+    }
+
+    _handleJoin(nick) {
+        this.emit("join", nick);
+    }
+
+    _handleLeft(nick) {
+        this.emit("left", nick);
+    }
+
+    _handleChangeNick(oldNick, newNick) {
+        this._nicks = this._nicks.filter(n => n !== oldNick);
+        this._nicks.push(newNick);
+    }
+
+    bind() {
+        let channel = this._channel;
+
+        this._connection.on(`${channel}:join`,
+            this._handlers.join);
+
+        this._connection.on(`${channel}:part`,
+            this._handlers.left);
+        
+        this._connection.on(`${channel}:message`,
+            this._handlers.message);
+
+        this._connection.on("changeMasterNick",
+            this._handlers.changeNick);
+   
+    }
+
+    sendMessage(msg) {
+        return this._connection.sendMessage(this._channel, msg);
     }
 
     /**
@@ -95,6 +132,7 @@ export default class IRCConnection extends EventEmitter {
         this._client = null;
         this._channels = [];
         this._registered = false;
+        this._originalNick = this._options.nick;
         
         debug.irc("Config", this._options);
 
@@ -114,6 +152,8 @@ export default class IRCConnection extends EventEmitter {
         if (this._options.autoConnect) {
             noop(this.client);
         }
+
+        instances.push(this);
 
     }
 
@@ -144,7 +184,7 @@ export default class IRCConnection extends EventEmitter {
         let ownChannel = this.getChannel(to);
 
         if (ownChannel && !ownChannel.hasNick(from)) {
-            this.emit(`${ownChannel.name}:message`, from, to, message);
+            this.emit(`${ownChannel.name}:message`, from, message);
         }
 
     }
@@ -267,12 +307,49 @@ export default class IRCConnection extends EventEmitter {
 
     }
 
+    sendMessage(channel, msg) {
+        // hack ¿?
+        noop(this.client);
+        this.waitForRegistered()
+            .then(() => {
+                this.client.say(channel, msg);
+            });
+    }
+
     /**
      * Nick
      * @property
      */
     get nick() {
         return this._options.nick;
+    }
+
+    /**
+     * identifier
+     * @property
+     */
+    get identifier() {
+        let {originalNick, port, server, ssl} = this._options;
+        return `${originalNick}@${server}:${port}${ssl ? "+" : ""}`;
+    }
+
+    /**
+     * Get connection by server options, if does not exists, create one
+     * @param {object} options @see IRCConnection.contrusctor
+     * @return {IRCConnection}
+     */
+    static getByServerOptions(options) {
+        let {nick, port, server, ssl} = options;
+        let identifier = `${nick}@${server}:${port}${ssl ? "+" : ""}`;
+        
+        let instance = instances.find(i => i.identifier === identifier);
+
+        if (!instance) {
+            instance = new IRCConnection(options);
+        }
+
+        return instance;
+
     }
 
 }
