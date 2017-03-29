@@ -13,7 +13,7 @@ const debug = {
 
 export const defaultConfig = assignIn({
     server: null,
-    masterNick: null,
+    nick: null,
     port: 6697,
     ssl: true,
     autoConnect: true,
@@ -34,7 +34,7 @@ export class IRCChannel extends EventEmitter {
         super();
         this._channel = channel;
         this._connection = connection;
-        this._nicks = [connection.masterNick];
+        this._nicks = [connection.nick];
 
         this._connection.on(`${channel}:join`, (...args) => {
             this.emit("join", ...args);
@@ -82,7 +82,7 @@ export default class IRCConnection extends EventEmitter {
      * Create new connection
      * @param {object} options  The options for connection
      * @param {string} options.server Server ip or name
-     * @param {string} options.masterNick The master_nick in the server
+     * @param {string} options.nick The nick in the server
      * @param {number} [options.port] Port number, by default 6697
      * @param {boolean} [options.ssl] Use SSL, by default true
      * @param {boolean} [options.autoConnect] Auto-connect to server, by
@@ -99,7 +99,7 @@ export default class IRCConnection extends EventEmitter {
         debug.irc("Config", this._options);
 
         if (!this._options.server || !this._options.port ||
-            !this._options.masterNick) {
+            !this._options.nick) {
             throw new Error("You need to specify some server and nick");
         }
 
@@ -216,10 +216,10 @@ export default class IRCConnection extends EventEmitter {
         }
 
         let {
-            server, port, ssl, masterNick, autoConnect, channels
+            server, port, ssl, nick, autoConnect, channels
         } = this._options;
 
-        this._client = new IRCClient(server, masterNick, {
+        this._client = new IRCClient(server, nick, {
             port,
             autoConnect,
             channels,
@@ -251,8 +251,8 @@ export default class IRCConnection extends EventEmitter {
             this._registered = true;
 
             this.emit("irc:registered", nick, data);
-            let oldNick = this._options.masterNick;
-            this._options.masterNick = nick;
+            let oldNick = this._options.nick;
+            this._options.nick = nick;
             this.emit("changeMasterNick", oldNick, nick);
         });
 
@@ -261,18 +261,18 @@ export default class IRCConnection extends EventEmitter {
             this.emit("error", message);
         });
 
-        this._ownUsernames = [this._options.masterNick];
+        this._ownUsernames = [this._options.nick];
 
         return this._client;
 
     }
 
     /**
-     * Master nick
+     * Nick
      * @property
      */
-    get materNick() {
-        return this._options.masterNick;
+    get nick() {
+        return this._options.nick;
     }
 
 }
