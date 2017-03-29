@@ -1,3 +1,4 @@
+import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
 
@@ -14,8 +15,86 @@ export const defaultConfig = {
     irc: null,
     telegram: null,
     lang: null,
-    oneConnectionByUser: false
+    oneConnectionByUser: false,
+    prefix: "telegram_",
+    suflix: "",
 };
+
+let userInstances = [];
+
+export const resolveNick = function(name, options) {
+    "use strict";
+    let {prefix, suflix} = options;
+    return `${prefix}${name}${suflix}`; 
+};
+
+export class UserBridge extends EventEmitter {
+
+    constructor(name, options) {
+        super();
+
+        this._options = assignIn({}, {
+            prefix: "tele_",
+            suflix: "",
+        }, options);
+
+        this._name = name;
+
+        let rnick = resolveNick(this._name, this._options);
+
+        let serveropts =  assignIn(
+            {}, options.irc, {nick: rnick}
+        );
+        
+        debug(`Search irc connection for `);
+        debug(serveropts);
+
+        this._ircConnection = IRCConnection.getByServerOptions(serveropts);
+
+        userInstances.push(this);
+
+    }
+
+    getChannel(channelName) {
+        let channel = this._ircConnection.getChannel(channelName); 
+            
+        if (!channel) {
+            channel = this._ircConnection.addChannel(channelName);
+        }
+
+        return channel;
+    }
+
+    get nick() {
+        resolveNick(this._name, this._options);
+    }
+
+    get identifier() {
+        let name = this._name;
+        let ircIdent = this._ircConnection.identifier;
+        return `${name}@@${ircIdent}`;
+    }
+
+    static getByOptions(nick, options) {
+        let rnick = resolveNick(nick, options);
+        let ircOptions = assignIn({}, options.irc, {nick: rnick});
+        debug("ircoptions", ircOptions);
+        let irc = IRCConnection.getByServerOptions(
+            ircOptions);
+        let ircIdent = irc.identifier;
+        let userIdent = `${nick}@@${ircIdent}`;
+        debug(`Find for UserBridge ${userIdent}`);
+        let instance = userInstances.find(u => u.identifier === userIdent);
+
+        if (!instance) {
+            debug("Not foud, creating");
+            instance = new UserBridge(nick, options);
+        }
+
+        return instance;
+    }
+    
+}
 
 /**
  * Bridge class
@@ -32,10 +111,14 @@ export default class Bridge {
      * @param {bool} [oneConnectionByUser] Create one new connection to IRC by
      *                                     each new user in telegram. By    
      *                                     default is false
+     * @param {string} [prefix] User nickname prefix
+     * @param {string} [suflix] User nickname suflix
      */
     constructor(name, ircChannel, telegramChannel, options) {
         this._options = assignIn(
             {}, defaultConfig, options);
+
+        this._ircUsers = [];
 
         debug(`Create bridge ${name}`);
 
@@ -84,8 +167,15 @@ export default class Bridge {
 
     _handleTelegramMessage(user, message) {
         debug("telegram in message", user, message);
-        let msg = `[Telegram/@${user.username}] ${message}`;
-        this._ircChannel.sendMessage(msg);
+        if (this._options.oneConnectionByUser) {
+            let userConnection = UserBridge.getByOptions(
+                user.username, this._options);
+            let chan = userConnection.getChannel(this._ircChannel.name);
+            chan.sendMessage(message);
+        } else {
+            let msg = `[Telegram/@${user.username}] ${message}`;
+            this._ircChannel.sendMessage(msg);
+        }
     }
 
     _handleTelegramJoin(...args) {
