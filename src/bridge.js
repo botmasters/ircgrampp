@@ -22,14 +22,28 @@ export const defaultConfig = {
 
 let userInstances = [];
 
+/**
+ * Resolve nicks with the prefix and suflix options
+ * @param {string} name
+ * @param {object} options
+ * @return {string}
+ */
 export const resolveNick = function(name, options) {
     "use strict";
     let {prefix, suflix} = options;
     return `${prefix}${name}${suflix}`; 
 };
 
+/**
+ * User bridge, for oneConnectionByUser option
+ */
 export class UserBridge extends EventEmitter {
 
+    /**
+     * Create new UserBridge
+     * @param {string} name The original name (Telegram username)
+     * @param {object} options Bridge options
+     */
     constructor(name, options) {
         super();
 
@@ -55,6 +69,11 @@ export class UserBridge extends EventEmitter {
 
     }
 
+    /**
+     * Get channel from the user bridge
+     * @param {string} channelName IRC channel name
+     * @return {IRCChannel}
+     */
     getChannel(channelName) {
         let channel = this._ircConnection.getChannel(channelName); 
             
@@ -65,16 +84,38 @@ export class UserBridge extends EventEmitter {
         return channel;
     }
 
+    /**
+     * Final nickname (applied prefix/suflix);
+     * @property nick
+     */
     get nick() {
-        resolveNick(this._name, this._options);
+        return resolveNick(this._name, this._options);
     }
 
+    /**
+     * Original name (telegram username)
+     * @property name
+     */
+    get name() {
+        return this._name;
+    }
+
+    /**
+     * Unique identifier, generated with username and server options
+     * @property identifier
+     */
     get identifier() {
         let name = this._name;
         let ircIdent = this._ircConnection.identifier;
         return `${name}@@${ircIdent}`;
     }
 
+    /**
+     * Get UserBridge by options
+     * @param {string} nick Original username
+     * @param {object} options Bridge options
+     * @return {UserBridge}
+     */
     static getByOptions(nick, options) {
         let rnick = resolveNick(nick, options);
         let ircOptions = assignIn({}, options.irc, {nick: rnick});
@@ -147,30 +188,112 @@ export default class Bridge {
 
     }
 
+    /**
+     * Get UserBridge from a telegram user
+     * @param {string} username Telegram username
+     * @return {UserBridge}
+     */
+    _getIrcUser(username) {
+        let user = this._ircUsers.find(
+            x => x.name === username);
+
+        if (!user) {
+            user = UserBridge.getByOptions(username, this._options);
+            this._ircUsers.push(user);
+        }
+
+        return user;
+    }
+
+    /**
+     * Return true if there are a UserBridge with the passed irc nick
+     * @param {string} nick IRC nick
+     * @return {bool}
+     */
+    _haveIrcUser(nick) {
+        debug(`Check if have user ${nick}`);
+        debug("M", this._ircUsers.map(u => u.nick));
+        debug("I", this._ircConnector.nick);
+        
+        if (nick === this._ircChannel.nick) {
+            return true;
+        }
+
+        return !!this._ircUsers.find(
+            x => x.nick === nick);
+    }
+
+    /**
+     * Return the final IRCChannel from an UserBridge
+     * @param {string} username Telegram username
+     * @return {IRCChannel}
+     */
+    _getIrcUserChan(username) {
+        let user = this._getIrcUser(username);
+        let chan = user.getChannel(this._ircChannel.name);
+        return chan;
+    }
+
+    /**
+     * Remove an user from IRC users list
+     * @param {UserBridge} user UserBridge insntance
+     * @return {UserBridge}
+     */
+    _removeIrcUser(user) {
+        this._ircUsers = this._ircUsers.filter(
+            x => x.identifier !== user.identifier);
+        return user;
+    }
+
+    /**
+     * Handle incomming IRC message
+     * @param {string} user IRC user
+     * @param {string} message Message
+     */
     _handleIRCMessage(user, message) {
+        if (this._haveIrcUser(user)) {
+            return;
+        }
         debug("irc in message", user, message);
         let msg = `[IRC/${user}] ${message}`;
         this._telegramChannel.sendMessage(msg);
     }
 
+    /**
+     * Handle incomming IRC join message
+     * @param {string} user IRC user
+     */
     _handleIRCJoin(user) {
+        if (this._haveIrcUser(user)) {
+            return;
+        }
         debug("irc join", user);
         let msg = `[IRC] ** ${user} join`;
         this._telegramChannel.sendMessage(msg);
     }
 
+    /**
+     * Handle IRC part message
+     * @param {string} user Irc user
+     */
     _handleIRCLeft(user) {
+        if (this._haveIrcUser(user)) {
+            return;
+        }
         debug("irc left", user);
         let msg = `[IRC] ** ${user} left the channel`;
         this._telegramChannel.sendMessage(msg);
     }
 
+    /**
+     * Handle Telegram incomming message
+     * @param {object} user Telegram user data 
+     * @param {string} message Text message
+     */
     _handleTelegramMessage(user, message) {
         debug("telegram in message", user, message);
         if (this._options.oneConnectionByUser) {
-            let userConnection = UserBridge.getByOptions(
-                user.username, this._options);
-            let chan = userConnection.getChannel(this._ircChannel.name);
+            let chan = this._getIrcUserChan(user.username);
             chan.sendMessage(message);
         } else {
             let msg = `[Telegram/@${user.username}] ${message}`;
@@ -178,14 +301,41 @@ export default class Bridge {
         }
     }
 
-    _handleTelegramJoin(...args) {
-        debug("telegram in join", ...args);
+    /**
+     * Handle Telegram join message
+     * @param {object} user Telegram user data
+     */
+    _handleTelegramJoin(user) {
+        debug("telegram in join", user);
+        if (this._options.oneConnectionByUser) {
+            this._getIrcUserChan(user.username);
+        } else {
+            let msg = `[Telegram] ${user.username} join`;
+            this._ircChannel.sendMessage(msg);
+        }
     }
 
-    _handleTelegramLeft(...args) {
-        debug("telegram in left", ...args);
+    /**
+     * Handle telegram user left message
+     * @param {object} user Telegram user data
+     */
+    _handleTelegramLeft(user) {
+        debug("telegram left", user);
+        if (this._options.oneConnectionByUser) {
+            if (this._haveIrcUser(user)) {
+                let chan = this._getIrcUserChan(user.username);
+                chan.destroy();
+            }
+        } else {
+            let msg = `[Telegram] ${user.username} left`;
+            this._ircChannel.sendMessage(msg);
+        }
     }
 
+    /**
+     * Bind all events
+     * @private
+     */
     bind() {
 
         // IRC
