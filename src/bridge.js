@@ -1,6 +1,7 @@
 import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
+import escapeStringRegExp from "escape-string-regexp";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
@@ -30,6 +31,7 @@ let userInstances = [];
  */
 export const resolveNick = function(name, options) {
     "use strict";
+    name = name.replace(/[^\w_]/, '');
     let {prefix, suflix} = options;
     return `${prefix}${name}${suflix}`; 
 };
@@ -189,6 +191,26 @@ export default class Bridge {
     }
 
     /**
+     * Translate IRC nicks to Telegram nicks
+     * @param {string} message Message to translate nicks
+     * @return {string} Final message
+     */
+    _translateIrcNicks(message) {
+        return this._ircUsers
+            .map((x) => {
+                let {name, nick} = x;
+                return {name, nick};
+            })
+            .reduce((message, replaces) => {
+                let {name, nick} = replaces;
+                let snick = escapeStringRegExp(nick);
+                let regexptxt = `\\b${snick}\\b`;
+                let regexp = new RegExp(regexptxt, "g");
+                return message.replace(regexp, `@${name}`);
+            }, message);
+    }
+
+    /**
      * Get UserBridge from a telegram user
      * @param {string} username Telegram username
      * @return {UserBridge}
@@ -255,6 +277,11 @@ export default class Bridge {
             return;
         }
         debug("irc in message", user, message);
+
+        if (this._options.oneConnectionByUser) {
+            message = this._translateIrcNicks(message);
+        }
+
         let msg = `[IRC/${user}] ${message}`;
         this._telegramChannel.sendMessage(msg);
     }
