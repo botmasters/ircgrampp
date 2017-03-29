@@ -87,6 +87,22 @@ export class IRCChannel extends EventEmitter {
    
     }
 
+    unbind() {
+        let channel = this._channel;
+
+        this._connection.removeListener(`${channel}:join`,
+            this._handlers.join);
+
+        this._connection.removeListener(`${channel}:part`,
+            this._handlers.left);
+        
+        this._connection.removeListener(`${channel}:message`,
+            this._handlers.message);
+
+        this._connection.removeListener("changeMasterNick",
+            this._handlers.changeNick);       
+    }
+
     sendMessage(msg) {
         return this._connection.sendMessage(this._channel, msg);
     }
@@ -98,6 +114,12 @@ export class IRCChannel extends EventEmitter {
      */
     hasNick(nickName) {
         return this._nicks.indexOf(nickName) !== -1;
+    }
+
+    destroy() {
+        debug.irc(`Destroy channel ${this.name}`);
+        this.unbind();
+        this._connection.removeChannel(this.name);
     }
 
     /**
@@ -243,6 +265,23 @@ export default class IRCConnection extends EventEmitter {
             });
 
         return channel;
+    }
+
+    removeChannel(channelName) {
+        let channel = this._channels.find(
+            c => c.name === channelName);
+
+        if (!channel) {
+            throw new Error("Channel does not exists");
+        }
+
+        this.waitForRegistered()
+            .then(() => {
+                this.client.part(channelName);
+            });
+
+        this._channels = this._channels.filter(
+            x => x.name !== channel.name);
     }
 
     /**
