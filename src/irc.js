@@ -329,7 +329,8 @@ export default class IRCConnection extends EventEmitter {
      * @property
      */
     get identifier() {
-        let {originalNick, port, server, ssl} = this._options;
+        let {port, server, ssl} = this._options;
+        let originalNick = this._originalNick;
         return `${originalNick}@${server}:${port}${ssl ? "+" : ""}`;
     }
 
@@ -338,9 +339,12 @@ export default class IRCConnection extends EventEmitter {
      * @param {object} options @see IRCConnection.contrusctor
      * @return {IRCConnection}
      */
-    static getByServerOptions(options) {
+    static getByServerOptions(uoptions) {
+        let options = assignIn({}, defaultConfig, uoptions);
         let {nick, port, server, ssl} = options;
         let identifier = `${nick}@${server}:${port}${ssl ? "+" : ""}`;
+
+        debug.irc(`Search server by identifier ${identifier}`);
         
         let instance = instances.find(i => i.identifier === identifier);
 
