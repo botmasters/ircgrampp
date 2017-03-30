@@ -1,7 +1,9 @@
 
 import Session from "../session";
 
-export default function () {
-    let session = new Session();
+export default function (args) {
+    let session = new Session({
+        only: args.only || null
+    });
     session.start();
 }

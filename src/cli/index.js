@@ -18,7 +18,6 @@ program
     .command("start")
     .alias("s")
     .description("Start bridges")
-    .option("-d, --daemon", "Start in background")
     .option("--only <bridge>", "Start only the specific bridge")
     .action(startProgram);
 

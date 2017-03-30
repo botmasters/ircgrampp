@@ -26,12 +26,16 @@ export default class Session extends EventEmitter {
     }
 
     _makeBridgesTree() {
+
+        if (this._options.only) {
+            debug(`only option for ${this._options.only}`);
+        }
+
         return (config.get("bridges") || [])
             .map(x => x.name)
             .filter((b) => {
                 if (this._options.only) {
-                    debug(`only option for ${this._options.only}`);
-                    return b.name === this._options.only;
+                    return b === this._options.only;
                 } else {
                     return true;
                 }
@@ -53,9 +57,16 @@ export default class Session extends EventEmitter {
         debug("Starting bridges");
 
         this._bridges = this._bridgesConfig.map((bridgeConfig) => {
-            debug(`Starting ${bridgeConfig.name}`);
             let ircChannel = bridgeConfig.irc.channel;
             let telegramChannel = bridgeConfig.telegram.channel;
+
+            if (!ircChannel || !telegramChannel) {
+                throw new Error(`Bridge ${bridgeConfig.name} has a error in ` +
+                                `IRC or telegram channel definition`);
+            }
+
+            debug(`Starting ${bridgeConfig.name} ${ircChannel} <-> ` + 
+                  ` ${telegramChannel}`);
 
             let bridge = new Bridge(
                 bridgeConfig.name,

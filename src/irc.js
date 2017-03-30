@@ -34,6 +34,8 @@ export class IRCChannel extends EventEmitter {
      */
     constructor(channel, connection) {
         super();
+        debug.irc(
+            `Creating IRCChannel for ${channel} for ${connection.ident}`);
         this._channel = channel;
         this._connection = connection;
         this._nicks = [connection.nick];
@@ -251,6 +253,7 @@ export default class IRCConnection extends EventEmitter {
      * @return {Promise<IRCChannel>}
      */
     addChannel(channelName) {
+        debug.irc(`Add channel to IRCConnection ${channelName}`);
 
         if (this._channels.find(c => c.name === channelName)) {
             throw new Error("Channel already exists");
@@ -261,6 +264,7 @@ export default class IRCConnection extends EventEmitter {
 
         this.waitForRegistered()
             .then(() => {
+                debug.irc("Send irc join");
                 this.client.join(channelName);
             });
 
