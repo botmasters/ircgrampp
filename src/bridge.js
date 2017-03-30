@@ -62,8 +62,7 @@ export class UserBridge extends EventEmitter {
             {}, options.irc, {nick: rnick}
         );
         
-        debug(`Search irc connection for `);
-        debug(serveropts);
+        debug(`Search irc connection for ${rnick}@${serveropts.server}`);
 
         this._ircConnection = IRCConnection.getByServerOptions(serveropts);
 
@@ -121,7 +120,6 @@ export class UserBridge extends EventEmitter {
     static getByOptions(nick, options) {
         let rnick = resolveNick(nick, options);
         let ircOptions = assignIn({}, options.irc, {nick: rnick});
-        debug("ircoptions", ircOptions);
         let irc = IRCConnection.getByServerOptions(
             ircOptions);
         let ircIdent = irc.identifier;
@@ -142,7 +140,7 @@ export class UserBridge extends EventEmitter {
 /**
  * Bridge class
  */
-export default class Bridge {
+export default class Bridge extends EventEmitter {
 
     /**
      * Create new bridge
@@ -158,6 +156,8 @@ export default class Bridge {
      * @param {string} [suflix] User nickname suflix
      */
     constructor(name, ircChannel, telegramChannel, options) {
+        super();
+
         this._options = assignIn(
             {}, defaultConfig, options);
 
@@ -176,6 +176,9 @@ export default class Bridge {
 
         this._telegramChannel = this._telegramConnector.followChannel(
             telegramChannel);
+
+        this._telegramSuccessMe = false;
+        this._ircSuccessRegistered = false;
 
         this._handlers = {
             ircMessage: this._handleIRCMessage.bind(this),
@@ -234,10 +237,8 @@ export default class Bridge {
      */
     _haveIrcUser(nick) {
         debug(`Check if have user ${nick}`);
-        debug("M", this._ircUsers.map(u => u.nick));
-        debug("I", this._ircConnector.nick);
         
-        if (nick === this._ircChannel.nick) {
+        if (nick === this._ircConnector.nick) {
             return true;
         }
 
@@ -276,7 +277,7 @@ export default class Bridge {
         if (this._haveIrcUser(user)) {
             return;
         }
-        debug("irc in message", user, message);
+        debug("irc in message", user);
 
         if (this._options.oneConnectionByUser) {
             message = this._translateIrcNicks(message);
@@ -318,7 +319,7 @@ export default class Bridge {
      * @param {string} message Text message
      */
     _handleTelegramMessage(user, message) {
-        debug("telegram in message", user, message);
+        debug("telegram in message", user);
         if (this._options.oneConnectionByUser) {
             let chan = this._getIrcUserChan(user.username);
             chan.sendMessage(message);
@@ -366,6 +367,13 @@ export default class Bridge {
     bind() {
 
         // IRC
+        
+        this._ircConnector.waitForRegistered()
+            .then(() => {
+                this._ircSuccessRegistered = true;
+                this.emit("irc:registered");
+            });
+        
         this._ircChannel.on("message",
             this._handlers.ircMessage);
 
@@ -376,6 +384,12 @@ export default class Bridge {
             this._handlers.ircLeft);
 
         // Telegram
+        
+        this._telegramConnector.me 
+            .then((me) => {
+                this._telegramSuccessMe = true;
+                this.emit("telegram:me", me);
+            });
         
         this._telegramChannel.on("message",
             this._handlers.telegramMessage);

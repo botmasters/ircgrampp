@@ -156,7 +156,7 @@ export default class IRCConnection extends EventEmitter {
         this._registered = false;
         this._originalNick = this._options.nick;
         
-        debug.irc("Config", this._options);
+        debug.irc(`Start irc connection ${this._options.server}`);
 
         if (!this._options.server || !this._options.port ||
             !this._options.nick) {
