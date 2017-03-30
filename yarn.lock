@@ -2325,9 +2325,9 @@ pretty-hrtime@^1.0.0, pretty-hrtime@^1.0.3:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/pretty-hrtime/-/pretty-hrtime-1.0.3.tgz#b7e3ea42435a4c9b2759d99e0f201eb195802ee1"
 
-prettyjson@^1.2.1:
+"prettyjson@https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28":
   version "1.2.1"
-  resolved "https://registry.yarnpkg.com/prettyjson/-/prettyjson-1.2.1.tgz#fcffab41d19cab4dfae5e575e64246619b12d289"
+  resolved "https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28"
   dependencies:
     colors "^1.1.2"
     minimist "^1.2.0"
