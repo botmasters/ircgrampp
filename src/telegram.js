@@ -3,6 +3,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn, noop} from "lodash";
 import TelegramBot from 'node-telegram-bot-api';
+import {ChannelsInfo} from "./storage";
 
 var Promise = require("bluebird");
 
@@ -15,9 +16,6 @@ const defaultConfig = {
     token: null,
     autoConnect: true,
 };
-
-// @TODO: Persist
-let chatsInformation = [];
 
 let instances = [];
 
@@ -33,6 +31,7 @@ export class TelegramChannel extends EventEmitter {
      */
     constructor(channel, connector) {
         super();
+        debug("Start channel");
         this._channel = channel;
         this._connector = connector;
 
@@ -42,20 +41,8 @@ export class TelegramChannel extends EventEmitter {
         this._chatTitle = null;
         this._chatLastUpdated = null;
 
-
-        let chatInfo;
-
-        if (typeof this._channel === "number") {
-            chatInfo = chatsInformation.find(c => c.id === this._channel);
-        } else {
-            chatInfo = chatsInformation
-                .find(c => c.title === `${this._channel}`);
-        }
-
-        if (chatInfo) {
-            this.setData(chatInfo);
-        }
-
+        let channelsInfo = ChannelsInfo.getInstance();
+        let chatInfo = channelsInfo.find(this._channel);
 
         this._handlers = {
             message: this._handleMessage.bind(this),
@@ -63,7 +50,12 @@ export class TelegramChannel extends EventEmitter {
             left: this._handleLeftParticipant.bind(this),
         };
 
-        this.bind();
+        if (chatInfo) {
+            debug("Heve info about channel, setting");
+            this.setData(chatInfo, false);
+        } else {
+            this.bind();
+        }
 
     }
 
@@ -130,10 +122,16 @@ export class TelegramChannel extends EventEmitter {
      * Set channel information
      * @param {object} data
      */
-    setData(data) {
+    setData(data, sync = true) {
 
         if (typeof this._channel === "string") {
             this.unbind();
+        }
+        
+        if (sync && 
+            (this._chatTitle !== data.title || this._chatType !== data.type)) {
+            ChannelsInfo.getInstance()
+                .save(data);
         }
 
         this._hasInfo = true;
@@ -272,17 +270,13 @@ export default class TelegramConnection extends EventEmitter {
     refreshChatInformation(chatData) {
         let {id, title, type} = chatData;
         let now = (new Date()).getTime();
+        let channelsInfo = ChannelsInfo.getInstance();
 
-        let current = chatsInformation.find(x => x.id === id);
+        let current = channelsInfo.find(id);
 
-        if (current) {
-            if (current.type === type && current.id === id &&
+        if (current && current.type === type && current.id === id &&
                 current.title === title) {
                 return;
-            } else {
-                chatsInformation = chatsInformation
-                    .filter(c => c.id !== id);
-            }
         }
 
         let data = {
@@ -292,8 +286,7 @@ export default class TelegramConnection extends EventEmitter {
             updated: now
         };
 
-        chatsInformation.push(data);
-
+        channelsInfo.save(data);
         debug("channel info update", data.id, data.title);
         this.emit("chatinformationupdate", data);
     }

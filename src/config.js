@@ -1,5 +1,9 @@
 "use strict";
 
+/**
+ * @TODO: Add expire time for channel info storage 
+ */
+
 import path from "path";
 import {userInfo} from "os"; 
 import etc from "etc";
@@ -34,7 +38,7 @@ const config = etc()
         bridges: values(bridges.toJSON())
     })
     .add({
-        db: path.join(appdir, "db.dat")
+        channelsdb: path.join(appdir, "channels.dat")
     });
 
 export default config;
