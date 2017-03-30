@@ -1,6 +1,7 @@
 
 import program from "commander";
 import packageInfo from "../../package.json";
+import startProgram from "./start";
 
 /*process.on("uncaughtException", (err) => {
     process.stderr.write(`${err}\n`);
@@ -18,9 +19,7 @@ program
     .description("Start bridges")
     .option("-d, --daemon", "Start in background")
     .option("--only <bridge>", "Start only the specific bridge")
-    .action(() => {
-    
-    });
+    .action(startProgram);
 
 program
     .command('*')
