@@ -11,7 +11,7 @@
   },
   "name": "ircgrampp",
   "version": "1.0.0",
-  "description": "IRCGram is a complexly simple Telegram <-> IRC Gateway (Fork)",
+  "description": "IRCGram++ is a complexly simple Telegram <-> IRC Gateway",
   "main": "lib/index.js",
   "dependencies": {
     "acorn": "^4.0.4",
@@ -369,7 +369,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/gulp lint",
-    "build": "./node_modules/.bin/gulp build"
+    "build": "./node_modules/.bin/gulp build && chmod +x ./bin/*"
   },
   "keywords": [
     "irc",
