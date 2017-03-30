@@ -372,6 +372,36 @@ const editBridge = function () {
 
 }
 
+const deleteBridges = function () {
+    let bridges = config.get("bridges")
+        .map(x => x.name);
+
+    return inquirer.prompt({
+        type: "checkbox",
+        name: "bridges",
+        choices: bridges,
+        message: "Select bridges to delete",
+        validate(val) {
+            return !!val.length;
+        }
+    }).then((res) => {
+        return inquirer.prompt({
+            type: "confirm",
+            name: "deleteall",
+            default: false,
+            message: "You are going to delete the next bridges " +
+                     "configurations: " + res.bridges.join(", ") +
+                     ". Are you sure?"
+        }).then((cres) => {
+            if (cres.deleteall) {
+                res.bridges.map(b => deleteBridgeConfig(b));
+            } else {
+                throw new CancelSignal();
+            }
+        });
+    })
+}
+
 export default function () {
 
     return initConfig()
@@ -386,6 +416,8 @@ export default function () {
                     return addNewBridge();
                 case "editb":
                     return editBridge();
+                case "deleteb":
+                    return deleteBridges();
                 case "exit":
                     return;
             }
