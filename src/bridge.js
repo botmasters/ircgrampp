@@ -24,13 +24,13 @@ export const defaultConfig = {
     lang: null,
     oneConnectionByUser: false,
     prefix: "telegram_",
-    suflix: "",
+    suffix: "",
 };
 
 let userInstances = [];
 
 /**
- * Resolve nicks with the prefix and suflix options
+ * Resolve nicks with the prefix and suffix options
  * @param {string} name
  * @param {object} options
  * @return {string}
@@ -38,8 +38,8 @@ let userInstances = [];
 export const resolveNick = function(name, options) {
     "use strict";
     name = name.replace(/[^\w_]/, '');
-    let {prefix, suflix} = options;
-    return `${prefix}${name}${suflix}`; 
+    let {prefix, suffix} = options;
+    return `${prefix}${name}${suffix}`; 
 };
 
 /**
@@ -57,7 +57,7 @@ export class UserBridge extends EventEmitter {
 
         this._options = assignIn({}, {
             prefix: "tele_",
-            suflix: "",
+            suffix: "",
         }, options);
 
         this._name = name;
@@ -92,7 +92,7 @@ export class UserBridge extends EventEmitter {
     }
 
     /**
-     * Final nickname (applied prefix/suflix);
+     * Final nickname (applied prefix/suffix);
      * @property nick
      */
     get nick() {
@@ -159,7 +159,7 @@ export default class Bridge extends EventEmitter {
      *                                     each new user in telegram. By    
      *                                     default is false
      * @param {string} [prefix] User nickname prefix
-     * @param {string} [suflix] User nickname suflix
+     * @param {string} [suffix] User nickname suffix
      */
     constructor(name, ircChannel, telegramChannel, options) {
         super();

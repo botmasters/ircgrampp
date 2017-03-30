@@ -46,7 +46,7 @@ configuration with a simple dummies steps.
 
 # Develop
 
-You can do pull requests, code revisions, fixes, etc. (all of it is wellcomed).
+You can do pull requests, code revisions, fixes, etc. (all of it is welcomed).
 
 ## Clone repo
 
