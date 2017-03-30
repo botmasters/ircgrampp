@@ -80,10 +80,15 @@ export const saveConfig = function() {
     return fs.writeFileSync(confpath, data);
 }
 
-export const saveBridgeConfig = function (bdata) {
+export const saveBridgeConfig = function(bdata) {
     let data = new Buffer(`${renderConfigFile(bdata, true)}\n`, 'utf8');
     let file = path.join(bridgespath, `${bdata.name}.yml`);
     return fs.writeFileSync(file, data);
+}
+
+export const deleteBridgeConfig = function(name) {
+    let file = path.join(bridgespath, `${name}.yml`);
+    fs.unlinkSync(file);
 }
 
 export const bridges = etc()

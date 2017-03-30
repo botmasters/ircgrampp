@@ -7,8 +7,10 @@ import {
     checkConfigDir,
     createDataDir,
     renderConfigFile,
+    getBridgeConfig,
     saveConfig,
     saveBridgeConfig,
+    deleteBridgeConfig,
     config} from "../config";
 
 var Promise = require("bluebird");
@@ -133,6 +135,71 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
 
 }
 
+const generateBridgeConfigQuestions = function (defaults = {}) {
+
+    let defaultsOptions = assignIn({}, {
+        "enable": true,
+    }, defaults);
+
+    return [
+        {
+            type: "input",
+            name: "name",
+            message: "Bridge name",
+            default: defaultsOptions["name"],
+            validate(value) {
+                let bridges = config.get("bridges").map(x => x.name);
+
+                if (bridges.indexOf(value) !== -1 && value !== defaults.name) {
+                    return "Bridge already exists";
+                }
+
+                if (value.match(/^[a-z0-9]{3,20}$/i)) {
+                    return true;
+                } else {
+                    return "Bridge name can be letters, numbers and _ " +
+                           "character, and a length from 3 to 20";
+                }
+            }
+        },
+        ...generateConfigQuestions(defaultsOptions, {
+            ircNickNameRequired: true }),
+        {
+            type: "input",
+            name: "irc:channel",
+            message: "IRC channel",
+            default: defaultsOptions["irc:channel"],
+            validate(val) {
+                if (val.match(IRC_CHAN_RE)) {
+                    return true;
+                } else {
+                    return "Invalid IRC channel name";
+                }
+            }
+        },
+        {
+            type: "input",
+            name: "telegram:channel",
+            message: "Telegram channel name or id",
+            default: defaultsOptions["telegram:channel"],
+            validate(val) {
+                if (!val || val === "") {
+                    return "You need to define a Telegram channel";
+                }
+
+                return true;
+            }
+        },
+        {
+            type: "confirm",
+            name: "enable",
+            message: "Bridge is enable?",
+            default: defaultsOptions["enable"],
+        }
+    ];
+
+}
+
 const confirm = function(text) {
 
     return inquirer.prompt({
@@ -211,58 +278,7 @@ const configGlobals = function() {
 const addNewBridge = function () {
     let bconfig = etc();
 
-    let questions = [
-        {
-            type: "input",
-            name: "name",
-            message: "Bridge name",
-            validate(value) {
-                let bridges = config.get("bridges").map(x => x.name);
-
-                if (bridges.indexOf(value) !== -1) {
-                    return "Bridge already exists";
-                }
-
-                if (value.match(/^[a-z0-9]{3,20}$/i)) {
-                    return true;
-                } else {
-                    return "Bridge name can be letters, numbers and _ " +
-                           "character, and a length from 3 to 20";
-                }
-            }
-        },
-        ...generateConfigQuestions({}, { ircNickNameRequired: true }),
-        {
-            type: "input",
-            name: "irc:channel",
-            message: "IRC channel",
-            validate(val) {
-                if (val.match(IRC_CHAN_RE)) {
-                    return true;
-                } else {
-                    return "Invalid IRC channel name";
-                }
-            }
-        },
-        {
-            type: "input",
-            name: "telegram:channel",
-            message: "Telegram channel name or id",
-            validate(val) {
-                if (!val || val === "") {
-                    return "You need to define a Telegram channel";
-                }
-
-                return true;
-            }
-        },
-        {
-            type: "confirm",
-            name: "enable",
-            message: "Bridge is enable?",
-            default: true,
-        }
-    ];
+    let questions = generateBridgeConfigQuestions();
 
     return inquirer.prompt(questions)
         .then((gconfig) => {
@@ -290,6 +306,69 @@ const addNewBridge = function () {
                 throw new CancelSignal();
             }
         });
+}
+
+const editBridge = function () {
+    let bridges = config.get("bridges")
+        .map(x => x.name);
+    let bconfig = etc();
+    let originalName;
+
+    return inquirer.prompt({
+        type: "list",
+        name: "bridge",
+        choices: bridges,
+        message: "Select bridge to edit",
+    }).then((res) => {
+        let bridgeConfig = getBridgeConfig(res.bridge);
+        originalName = res.bridge;
+        bconfig.add(bridgeConfig);
+
+        let defaultsOptions = {
+            "name": bconfig.get("name"),
+            "enable": bconfig.get("enable"),
+            "telegram:token": bconfig.get("telegram:token"),
+            "telegram:channel": bconfig.get("telegram:channel"),
+            "irc:server": bconfig.get("irc:server"),
+            "irc:port": bconfig.get("irc:port"),
+            "irc:nick": bconfig.get("irc:nick"),
+            "irc:channel": bconfig.get("irc:channel"),
+            "irc:secure": bconfig.get("irc:secure") === false ?
+                                false :
+                                bconfig.get("irc:secure"),
+            "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
+            "prefix": bconfig.get("prefix"),
+            "suflix": bconfig.get("suflix"),
+        };
+
+        return inquirer.prompt(generateBridgeConfigQuestions(defaultsOptions));
+        
+    }).then((gconfig) => {
+        for (let i in gconfig) {
+            let v = gconfig[i];
+            if (v === "") {
+                continue;
+            }
+            bconfig.set(i, v);
+        }
+
+        debug("RR", bconfig.toJSON());
+
+        let configResult = renderConfigFile(bconfig.toJSON());
+
+        process.stdout.write(configResult);
+        process.stdout.write(`\n\n`);
+
+        return confirm("Confirm save?");
+
+    }).then((save) => {
+        if (save) {
+            deleteBridgeConfig(originalName);
+            return saveBridgeConfig(bconfig.toJSON());
+        } else {
+            throw new CancelSignal();
+        }
+    });
 
 }
 
@@ -305,6 +384,8 @@ export default function () {
                     return configGlobals();
                 case "createb":
                     return addNewBridge();
+                case "editb":
+                    return editBridge();
                 case "exit":
                     return;
             }
