@@ -1,3 +1,9 @@
+/**
+ * Bridge module
+ * 
+ * @TODO: Fix problem with final nick already exist on IRC channel
+ */
+
 import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
