@@ -2,6 +2,7 @@
 import program from "commander";
 import packageInfo from "../../package.json";
 import startProgram from "./start";
+import configProgram from "./config";
 
 /*process.on("uncaughtException", (err) => {
     process.stderr.write(`${err}\n`);
@@ -20,6 +21,11 @@ program
     .option("-d, --daemon", "Start in background")
     .option("--only <bridge>", "Start only the specific bridge")
     .action(startProgram);
+
+program
+    .command("config")
+    .description("Configure ircgram++")
+    .action(configProgram);
 
 program
     .command('*')

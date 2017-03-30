@@ -4,10 +4,12 @@
  * @TODO: Add expire time for channel info storage 
  */
 
+import fs from "fs";
 import path from "path";
 import {userInfo} from "os"; 
 import etc from "etc";
 import yml from "etc-yaml";
+import prettyjson from "prettyjson";
 import {values, assignIn} from "lodash";
 import debugLib from "debug";
 
@@ -26,12 +28,59 @@ if (process.versions.node.match(/^[56]\./)) {
 const appdir = path.join(homedir, ".ircgrampp");
 const confpath = path.join(appdir, "config.yml");
 const bridgespath = path.join(appdir, "bridges");
+const pluginspath  = path.join(appdir, "plugins");
+
+export const createDataDir = function () {
+    debug(`Creating app directory in ${appdir}`);
+    fs.mkdirSync(appdir, 0o700);
+    fs.mkdirSync(bridgespath, 0o700);
+    fs.mkdirSync(pluginspath, 0o700);
+}
+
+export const checkConfigDir = function (created = false) {
+    let stats;
+    debug(`Check for app directory in ${appdir}`);
+
+    try {
+        stats = fs.lstatSync(appdir);
+    } catch (e) {
+        debug(`Does not exist`);
+        if (created) {
+            return createDataDir();
+        }
+
+        return false;
+    }
+
+    if (!stats.isDirectory(appdir)) {
+        throw new Error(`${appdir} is not a directory`);
+    }
+
+    return true;
+
+}
+
+export const renderConfigFile = function (final = false) {
+    let configJson = config.toJSON();
+    delete configJson.bridges;
+    delete configJson.plugins;
+
+    return prettyjson.render(configJson, {
+        noColor: final,
+        indent: 2,
+    });
+}
+
+export const saveConfig = function() {
+    let data = new Buffer(`${renderConfigFile(true)}\n`, 'utf8');
+    return fs.writeFileSync(confpath, data);
+}
 
 export const bridges = etc()
     .use(yml)
     .folder(bridgespath);
 
-const config = etc()
+export const config = etc()
     .use(yml)
     .file(confpath)
     .add({
@@ -74,4 +123,4 @@ export const getBridgeConfig = function (name) {
 
     return bridge;
 
-};
+}; 
