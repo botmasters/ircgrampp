@@ -1,14 +1,22 @@
 
 import inquirer from "inquirer";
 import debugLib from "debug";
+import etc from "etc";
+import {assignIn} from "lodash";
 import {
     checkConfigDir,
     createDataDir,
     renderConfigFile,
     saveConfig,
+    saveBridgeConfig,
     config} from "../config";
 
 var Promise = require("bluebird");
+
+// RFC1459
+const IRC_NICK_RE = /^[a-z_\-\[\]\\^{}|`][a-z0-9_\-\[\]\\^{}|`]{2,15}$/i;
+/*eslint no-control-regex: "off"*/
+const IRC_CHAN_RE = /^([#&][^\x07\x2C\s]{0,200})$/i;
 
 const debug = debugLib("cli-config");
 
@@ -34,6 +42,96 @@ const options = [
         text: "Exit"
     }
 ];
+
+const generateConfigQuestions = function (defaults = {}, options = {}) {
+
+    let defaultsOptions = assignIn({}, {
+        "telegram:token": config.get("telegram:token") || undefined,
+        "irc:server": config.get("irc:server") || undefined,
+        "irc:port": config.get("irc:port") || 6697,
+        "irc:nick": config.get("irc:nick") || undefined,
+        "irc:secure": config.get("irc:secure") === false ?
+                            false :
+                            config.get("irc:secure"),
+        "oneConnectionByUser": config.get("oneConnectionByUser") || false,
+        "prefix": config.get("prefix") || "telegram_",
+        "suflix": config.get("suflix") || "",
+    }, defaults);
+
+    return [
+        {
+            type: "input",
+            name: "telegram:token",
+            message: "Telegram token",
+            default: defaultsOptions["telegram:token"],
+        },
+        {
+            type: "input",
+            name: "irc:server",
+            message: "IRC server ip or nameserver?",
+            default: defaultsOptions["irc:server"],
+        },
+        {
+            type: "input",
+            name: "irc:port",
+            message: "IRC server port?",
+            default: defaultsOptions["irc:port"],
+            validate (value) {
+                value = parseInt(value);
+                return value > 0 && value < 65535;
+            }
+        },
+        {
+            type: "input",
+            name: "irc:nick",
+            message: "IRC nickname",
+            default: defaultsOptions["irc:nick"],
+            validate(value) {
+
+                if (!options.ircNickNameRequired && value === "") {
+                    return true;
+                }
+
+                if (value.match(IRC_NICK_RE)) {
+                    return true;
+                } else {
+                    return "Invalid IRC nick";
+                }
+            }
+        },
+        {
+            type: "confirm",
+            name: "irc:secure",
+            message: "IRC server uses SSL?",
+            default: defaultsOptions["irc:secure"],
+        },
+        {
+            type: "confirm",
+            name: "oneConnectionByUser",
+            message: "Do you use one new IRC connection by telgram user?",
+            default: defaultsOptions["oneConnectionByUser"],
+        },
+        {
+            type: "input",
+            name: "prefix",
+            message: "Prefix for IRC users?",
+            default: defaultsOptions["prefix"],
+            validate(value) {
+                return !!value.match(/^[a-z0-9_]{0,10}$/i);
+            }
+        },
+        {
+            type: "input",
+            name: "suflix",
+            message: "Suflix for IRC users?",
+            default: defaultsOptions["suflix"],
+            validate(value) {
+                return !!value.match(/^[a-z0-9_]{0,10}$/i);
+            }
+        }
+    ];
+
+}
 
 const confirm = function(text) {
 
@@ -81,62 +179,7 @@ const showMenu = function () {
 
 const configGlobals = function() {
 
-    let questions = [
-        {
-            type: "input",
-            name: "telegram:token",
-            message: "Define global telegram token",
-            default: config.get("telegram:token") || undefined,
-        },
-        {
-            type: "input",
-            name: "irc:server",
-            message: "Default IRC server ip or nameserver?",
-            default: config.get("irc:server") || undefined,
-        },
-        {
-            type: "input",
-            name: "irc:port",
-            message: "Default IRC server port?",
-            default: config.get("irc:port") || 6697,
-            validate (value) {
-                value = parseInt(value);
-                return value > 0 && value < 65535;
-            }
-        },
-        {
-            type: "confirm",
-            name: "irc:secure",
-            message: "IRC server uses SSL?",
-            default: true,
-        },
-        {
-            type: "confirm",
-            name: "oneConnectionByUser",
-            message: "Do you use one new IRC connection by telgram user?",
-            default: config.get("oneConnectionByUser") || false,
-        },
-        {
-            type: "input",
-            name: "prefix",
-            message: "Default prefix for IRC users?",
-            default: config.get("prefix") || "telegram_",
-            validate(value) {
-                return !!value.match(/^[a-z0-9_]{0,10}$/i);
-            }
-        },
-        {
-            type: "input",
-            name: "suflix",
-            message: "Default sufix for IRC users?",
-            default: config.get("suflix") || "",
-            validate(value) {
-                return !!value.match(/^[a-z0-9_]{0,10}$/i);
-            }
-        }
-    ];
-
-    return inquirer.prompt(questions)
+    return inquirer.prompt(generateConfigQuestions())
         .then((gconfig) => {
             for (let i in gconfig) {
                 let v = gconfig[i];
@@ -165,6 +208,91 @@ const configGlobals = function() {
 
 }
 
+const addNewBridge = function () {
+    let bconfig = etc();
+
+    let questions = [
+        {
+            type: "input",
+            name: "name",
+            message: "Bridge name",
+            validate(value) {
+                let bridges = config.get("bridges").map(x => x.name);
+
+                if (bridges.indexOf(value) !== -1) {
+                    return "Bridge already exists";
+                }
+
+                if (value.match(/^[a-z0-9]{3,20}$/i)) {
+                    return true;
+                } else {
+                    return "Bridge name can be letters, numbers and _ " +
+                           "character, and a length from 3 to 20";
+                }
+            }
+        },
+        ...generateConfigQuestions({}, { ircNickNameRequired: true }),
+        {
+            type: "input",
+            name: "irc:channel",
+            message: "IRC channel",
+            validate(val) {
+                if (val.match(IRC_CHAN_RE)) {
+                    return true;
+                } else {
+                    return "Invalid IRC channel name";
+                }
+            }
+        },
+        {
+            type: "input",
+            name: "telegram:channel",
+            message: "Telegram channel name or id",
+            validate(val) {
+                if (!val || val === "") {
+                    return "You need to define a Telegram channel";
+                }
+
+                return true;
+            }
+        },
+        {
+            type: "confirm",
+            name: "enable",
+            message: "Bridge is enable?",
+            default: true,
+        }
+    ];
+
+    return inquirer.prompt(questions)
+        .then((gconfig) => {
+            for (let i in gconfig) {
+                let v = gconfig[i];
+                if (v === "") {
+                    continue;
+                }
+                bconfig.set(i, v);
+            }
+
+            debug("RR", bconfig.toJSON());
+
+            let configResult = renderConfigFile(bconfig.toJSON());
+
+            process.stdout.write(configResult);
+            process.stdout.write(`\n\n`);
+
+            return confirm("Confirm save?");
+        })
+        .then((save) => {
+            if (save) {
+                return saveBridgeConfig(bconfig.toJSON());
+            } else {
+                throw new CancelSignal();
+            }
+        });
+
+}
+
 export default function () {
 
     return initConfig()
@@ -175,6 +303,8 @@ export default function () {
             switch (res) {
                 case "globals":
                     return configGlobals();
+                case "createb":
+                    return addNewBridge();
                 case "exit":
                     return;
             }

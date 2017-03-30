@@ -60,8 +60,12 @@ export const checkConfigDir = function (created = false) {
 
 }
 
-export const renderConfigFile = function (final = false) {
-    let configJson = config.toJSON();
+export const renderConfigFile = function (configJson = null, final = false) {
+    
+    if (!configJson) {
+        configJson = config.toJSON();
+    }
+
     delete configJson.bridges;
     delete configJson.plugins;
 
@@ -72,8 +76,14 @@ export const renderConfigFile = function (final = false) {
 }
 
 export const saveConfig = function() {
-    let data = new Buffer(`${renderConfigFile(true)}\n`, 'utf8');
+    let data = new Buffer(`${renderConfigFile(null, true)}\n`, 'utf8');
     return fs.writeFileSync(confpath, data);
+}
+
+export const saveBridgeConfig = function (bdata) {
+    let data = new Buffer(`${renderConfigFile(bdata, true)}\n`, 'utf8');
+    let file = path.join(bridgespath, `${bdata.name}.yml`);
+    return fs.writeFileSync(file, data);
 }
 
 export const bridges = etc()
