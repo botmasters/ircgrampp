@@ -9,9 +9,16 @@ import debugLib from "debug";
 
 const debug = debugLib("config");
 
-const user = userInfo();
+let homedir;
 
-const homedir = user.homedir;
+if (process.versions.node.match(/^[56]\./)) {
+    homedir = process.env[(
+        process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
+} else if (process.versions.node.match(/^7\./)) {
+    let user = userInfo();
+    homedir = user.homedir;
+}
+
 const appdir = path.join(homedir, ".ircgrampp");
 const confpath = path.join(appdir, "config.yml");
 const bridgespath = path.join(appdir, "bridges");
@@ -36,6 +43,8 @@ export const getBridgeConfig = function (name) {
     let bridgeList = config.get("bridges") || [];
     let bridge = bridgeList.find(x => x.name === name);
 
+    debug(`Preparing config for bridge ${name}`);
+
     if (!bridge) {
         throw new Error("Bridge does not exists");
     }
@@ -44,6 +53,7 @@ export const getBridgeConfig = function (name) {
         enable: true,
         prefix: config.get("prefix"),
         suflix: config.get("suflix"), 
+        oneConnectionByUser: config.get("oneConnectionByUser"),
     }, bridge);
 
     for (let i in bridge) {
@@ -57,8 +67,6 @@ export const getBridgeConfig = function (name) {
 
     bridge.irc = assignIn({}, ircConfig, bridge.irc || {});
     bridge.telegram = assignIn({}, telegramConfig, bridge.telegram || {});
-
-    debug("b", bridge);
 
     return bridge;
 
