@@ -57,7 +57,7 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
                             config.get("irc:secure"),
         "oneConnectionByUser": config.get("oneConnectionByUser") || false,
         "prefix": config.get("prefix") || "telegram_",
-        "suflix": config.get("suflix") || "",
+        "suffix": config.get("suffix") || "",
     }, defaults);
 
     return [
@@ -124,9 +124,9 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
         },
         {
             type: "input",
-            name: "suflix",
-            message: "Suflix for IRC users?",
-            default: defaultsOptions["suflix"],
+            name: "suffix",
+            message: "Suffix for IRC users?",
+            default: defaultsOptions["suffix"],
             validate(value) {
                 return !!value.match(/^[a-z0-9_]{0,10}$/i);
             }
@@ -338,7 +338,7 @@ const editBridge = function () {
                                 bconfig.get("irc:secure"),
             "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
             "prefix": bconfig.get("prefix"),
-            "suflix": bconfig.get("suflix"),
+            "suffix": bconfig.get("suffix"),
         };
 
         return inquirer.prompt(generateBridgeConfigQuestions(defaultsOptions));

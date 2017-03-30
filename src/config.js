@@ -120,7 +120,7 @@ export const getBridgeConfig = function (name) {
     bridge = assignIn({}, {
         enable: true,
         prefix: config.get("prefix"),
-        suflix: config.get("suflix"), 
+        suffix: config.get("suffix"), 
         oneConnectionByUser: config.get("oneConnectionByUser"),
     }, bridge);
 
