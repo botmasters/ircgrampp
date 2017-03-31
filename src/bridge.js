@@ -8,6 +8,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
 import escapeStringRegExp from "escape-string-regexp";
+import {declareHook} from "./hooks";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
@@ -42,6 +43,8 @@ export const resolveNick = function(name, options) {
     return `${prefix}${name}${suffix}`; 
 };
 
+const getUserBridgeByOptionsHook = declareHook("userbridge:get.by.options");
+
 /**
  * User bridge, for oneConnectionByUser option
  */
@@ -62,6 +65,11 @@ export class UserBridge extends EventEmitter {
 
         this._name = name;
 
+        this._hooks = {
+            create: declareHook("userbridge:create"),
+            getChannel: declareHook("userbridge:get.channel"),
+        };
+
         let rnick = resolveNick(this._name, this._options);
 
         let serveropts =  assignIn(
@@ -73,6 +81,7 @@ export class UserBridge extends EventEmitter {
         this._ircConnection = IRCConnection.getByServerOptions(serveropts);
 
         userInstances.push(this);
+        this._hooks.create.after(this);
 
     }
 
@@ -82,11 +91,16 @@ export class UserBridge extends EventEmitter {
      * @return {IRCChannel}
      */
     getChannel(channelName) {
+
+        this._hooks.getChannel.before(channelName);
+
         let channel = this._ircConnection.getChannel(channelName); 
             
         if (!channel) {
             channel = this._ircConnection.addChannel(channelName);
         }
+
+        this._hooks.getChannel.after(channel);
 
         return channel;
     }
@@ -123,7 +137,15 @@ export class UserBridge extends EventEmitter {
      * @param {object} options Bridge options
      * @return {UserBridge}
      */
-    static getByOptions(nick, options) {
+    static getByOptions(unick, uoptions) {
+
+        let params = getUserBridgeByOptionsHook.beforeSync({
+            nick: unick,
+            options: uoptions
+        });
+
+        let {nick, options} = params;
+
         let rnick = resolveNick(nick, options);
         let ircOptions = assignIn({}, options.irc, {nick: rnick});
         let irc = IRCConnection.getByServerOptions(
@@ -138,7 +160,8 @@ export class UserBridge extends EventEmitter {
             instance = new UserBridge(nick, options);
         }
 
-        return instance;
+        return getUserBridgeByOptionsHook.afterSync(instance);
+
     }
     
 }
