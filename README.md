@@ -2,6 +2,7 @@ IRCGram++ is a complexly simple Telegram <-> IRC Gateway, based on
 [IRCGram](https://github.com/zephrax/ircgram)
 
 * Official IRC channel: [#botmasters @ irc.kernelpanic.com.ar](http://kernelpanic.com.ar/chat/)
+* Official Telegram channel: [@botmasters](https://t.me/botmasters)
 
 ## Diferences with IRCGram
 
