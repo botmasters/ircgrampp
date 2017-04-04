@@ -190,6 +190,7 @@ export default class Bridge extends EventEmitter {
             ircMessage: this._handleIRCMessage.bind(this),
             ircJoin: this._handleIRCJoin.bind(this),
             ircLeft: this._handleIRCLeft.bind(this),
+            ircTopic: this._handleIRCTopic.bind(this),
             telegramMessage: this._handleTelegramMessage.bind(this),
             telegramJoin: this._handleTelegramJoin.bind(this),
             telegramLeft: this._handleTelegramLeft.bind(this),
@@ -320,6 +321,19 @@ export default class Bridge extends EventEmitter {
     }
 
     /**
+     * Handle IRC topic message
+     * @param {string} user Irc user
+     */
+    _handleIRCTopic(channel, topic, nick) {
+        if (this._haveIrcUser(nick)) {
+            return;
+        }
+        debug("irc topic", topic, nick);
+        let msg = `[IRC] ** ${nick} changed the topic to: ${topic}`;
+        this._telegramChannel.sendMessage(msg);
+    }
+
+    /**
      * Handle Telegram incomming message
      * @param {object} user Telegram user data 
      * @param {string} message Text message
@@ -388,6 +402,9 @@ export default class Bridge extends EventEmitter {
 
         this._ircChannel.on("left",
             this._handlers.ircLeft);
+
+        this._ircChannel.on("topic",
+            this._handlers.ircTopic);
 
         // Telegram
         
