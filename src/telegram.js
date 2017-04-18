@@ -168,10 +168,10 @@ export class TelegramChannel extends EventEmitter {
      * Send a message to the channel
      * @param {string} message
      */
-    sendMessage(message) {
+    sendMessage(message, options) {
         this.waitInformation()
             .then(() => {
-                return this._connector.send(this._chatId, message);
+                return this._connector.send(this._chatId, message, options || {});
             });
     }
 
@@ -232,8 +232,8 @@ export default class TelegramConnection extends EventEmitter {
      * @param {string|number} chatId The chat ID
      * @param {string} msg Message
      */
-    send(chatId, msg) {
-        return this.tgBot.sendMessage(chatId, msg);
+    send(chatId, msg, options) {
+        return this.tgBot.sendMessage(chatId, msg, options);
     }
 
     /**

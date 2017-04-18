@@ -188,6 +188,7 @@ export default class Bridge extends EventEmitter {
 
         this._handlers = {
             ircMessage: this._handleIRCMessage.bind(this),
+            ircAction: this._handleIRCAction.bind(this),
             ircJoin: this._handleIRCJoin.bind(this),
             ircLeft: this._handleIRCLeft.bind(this),
             ircTopic: this._handleIRCTopic.bind(this),
@@ -295,6 +296,25 @@ export default class Bridge extends EventEmitter {
     }
 
     /**
+     * Handle incomming IRC action 
+     * @param {string} user IRC user
+     * @param {string} message Message
+     */
+    _handleIRCAction(user, message) {
+        if (this._haveIrcUser(user)) {
+            return;
+        }
+        debug("irc in action", user);
+
+        if (this._options.oneConnectionByUser) {
+            message = this._translateIrcNicks(message);
+        }
+
+        let msg = `_*[IRC/${user}] ${message}*_`;
+        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
+    }
+
+    /**
      * Handle incomming IRC join message
      * @param {string} user IRC user
      */
@@ -396,6 +416,9 @@ export default class Bridge extends EventEmitter {
         
         this._ircChannel.on("message",
             this._handlers.ircMessage);
+
+        this._ircChannel.on("action",
+            this._handlers.ircAction);
 
         this._ircChannel.on("join",
             this._handlers.ircJoin);

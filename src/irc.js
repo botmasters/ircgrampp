@@ -45,6 +45,7 @@ export class IRCChannel extends EventEmitter {
             join: this._handleJoin.bind(this),
             left: this._handleLeft.bind(this),
             topic: this._handleTopic.bind(this),
+            action: this._handleAction.bind(this),
             changeNick: this._handleChangeNick.bind(this),
         };
 
@@ -58,6 +59,14 @@ export class IRCChannel extends EventEmitter {
         }
 
         this.emit("message", nick, message);
+    }
+
+    _handleAction(nick, message) {
+        if (!message) {
+            return;
+        }
+
+        this.emit("action", nick, message);
     }
 
     _handleJoin(nick) {
@@ -92,6 +101,9 @@ export class IRCChannel extends EventEmitter {
         this._connection.on(`${channel}:message`,
             this._handlers.message);
 
+        this._connection.on(`${channel}:action`,
+            this._handlers.action);
+
         this._connection.on("changeMasterNick",
             this._handlers.changeNick);
    
@@ -111,6 +123,9 @@ export class IRCChannel extends EventEmitter {
 
         this._connection.removeListener(`${channel}:message`,
             this._handlers.message);
+
+        this._connection.removeListener(`${channel}:action`,
+            this._handlers.action);
 
         this._connection.removeListener("changeMasterNick",
             this._handlers.changeNick);       
@@ -221,7 +236,20 @@ export default class IRCConnection extends EventEmitter {
         if (ownChannel && !ownChannel.hasNick(from)) {
             this.emit(`${ownChannel.name}:message`, from, message);
         }
+    }
 
+    /**
+     * Handle incomming action from the server
+     * @param {string} from
+     * @param {string} to
+     * @param {string} message
+     */
+    _handleIncommingAction(from, to, message) {
+        let ownChannel = this.getChannel(to);
+
+        if (ownChannel && !ownChannel.hasNick(from)) {
+            this.emit(`${ownChannel.name}:action`, from, message);
+        }
     }
 
     /**
@@ -339,6 +367,12 @@ export default class IRCConnection extends EventEmitter {
             debug.irc(`${from} => ${to}: ${message}`);
             this.emit("irc:message", from, to, message);
             return this._handleIncommingMessage(from, to, message);
+        });
+
+        this._client.addListener("action", (from, to, message) => {
+            debug.irc(`${from} => ${to}: ${message}`);
+            this.emit("irc:action", from, to, message);
+            return this._handleIncommingAction(from, to, message);
         });
 
         this._client.addListener("join", (channel, nick, message) => {
