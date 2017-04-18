@@ -291,8 +291,8 @@ export default class Bridge extends EventEmitter {
             message = this._translateIrcNicks(message);
         }
 
-        let msg = `[IRC/${user}] ${message}`;
-        this._telegramChannel.sendMessage(msg);
+        let msg = `*<${user}>* ${message}`;
+        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
     }
 
     /**
@@ -310,7 +310,7 @@ export default class Bridge extends EventEmitter {
             message = this._translateIrcNicks(message);
         }
 
-        let msg = `_*[IRC/${user}] ${message}*_`;
+        let msg = `_*<${user}> ${message}*_`;
         this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
     }
 
@@ -323,8 +323,8 @@ export default class Bridge extends EventEmitter {
             return;
         }
         debug("irc join", user);
-        let msg = `[IRC] ** ${user} join`;
-        this._telegramChannel.sendMessage(msg);
+        let msg = `_*<${user}> has joined*_`;
+        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
     }
 
     /**
@@ -336,8 +336,8 @@ export default class Bridge extends EventEmitter {
             return;
         }
         debug("irc left", user);
-        let msg = `[IRC] ** ${user} left the channel`;
-        this._telegramChannel.sendMessage(msg);
+        let msg = `_*${user} left the channel*_`;
+        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
     }
 
     /**
@@ -349,7 +349,7 @@ export default class Bridge extends EventEmitter {
             return;
         }
         debug("irc topic", topic, nick);
-        let msg = `[IRC] ** ${nick} changed the topic to: ${topic}`;
+        let msg = `_*<${nick}> changed the topic to: ${topic}*_`;
         this._telegramChannel.sendMessage(msg);
     }
 
