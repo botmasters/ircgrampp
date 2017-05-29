@@ -56,6 +56,7 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
                             false :
                             config.get("irc:secure"),
         "oneConnectionByUser": config.get("oneConnectionByUser") || false,
+        "ircScapeCharacter": config.get("ircScapeCharacter") || "",
         "prefix": config.get("prefix") || "telegram_",
         "suffix": config.get("suffix") || "",
     }, defaults);
@@ -112,6 +113,12 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
             name: "oneConnectionByUser",
             message: "Do you use one new IRC connection by telgram user?",
             default: defaultsOptions["oneConnectionByUser"],
+        },
+        {
+            type: "input",
+            name: "ircScapeCharacter",
+            message: "Do you use one especial character for IRC bots?",
+            default: defaultsOptions["ircScapeCharacter"],
         },
         {
             type: "input",
@@ -337,6 +344,7 @@ const editBridge = function () {
                                 false :
                                 bconfig.get("irc:secure"),
             "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
+            "ircScapeCharacter": bconfig.get("ircScapeCharacter"),
             "prefix": bconfig.get("prefix"),
             "suffix": bconfig.get("suffix"),
         };
