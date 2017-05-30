@@ -364,11 +364,12 @@ export default class Bridge extends EventEmitter {
 
         let scape_char = this._options.ircScapeCharacter;
 
-        if (scape_char && message.startsWith(scape_char)){
-            this._ircChannel.sendMessage(message);
-        } else if (this._options.oneConnectionByUser) {
+        if (this._options.oneConnectionByUser) {
             let chan = this._getIrcUserChan(user.username);
             chan.sendMessage(message);
+        } else if (scape_char && message.startsWith(scape_char)){
+            this._ircChannel.sendMessage(message);
+
         } else {
             let msg = `[Telegram/@${user.username}] ${message}`;
             this._ircChannel.sendMessage(msg);
