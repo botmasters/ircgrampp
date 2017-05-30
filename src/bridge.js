@@ -294,7 +294,7 @@ export default class Bridge extends EventEmitter {
         }
 
         let msg = `*<${user}>* ${message}`;
-        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
+        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
     /**
@@ -313,7 +313,7 @@ export default class Bridge extends EventEmitter {
         }
 
         let msg = `_*<${user}> ${message}*_`;
-        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
+        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
     /**
@@ -326,7 +326,7 @@ export default class Bridge extends EventEmitter {
         }
         debug("irc join", user);
         let msg = `_*<${user}> has joined*_`;
-        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
+        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
     /**
@@ -339,7 +339,7 @@ export default class Bridge extends EventEmitter {
         }
         debug("irc left", user);
         let msg = `_*${user} left the channel*_`;
-        this._telegramChannel.sendMessage(msg, { parse_mode: 'markdown' });
+        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
     /**
@@ -363,12 +363,12 @@ export default class Bridge extends EventEmitter {
     _handleTelegramMessage(user, message) {
         debug("telegram in message", user);
 
-        let scape_char = this._options.ircScapeCharacter;
+        let scapeChar = this._options.ircScapeCharacter;
 
         if (this._options.oneConnectionByUser) {
             let chan = this._getIrcUserChan(user.username);
             chan.sendMessage(message);
-        } else if (scape_char && message.startsWith(scape_char)){
+        } else if (scapeChar && message.startsWith(scapeChar)){
             this._ircChannel.sendMessage(message);
 
         } else {
