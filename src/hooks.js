@@ -56,3 +56,11 @@ export class Hook {
 export const declareHook = function (name) {
     return new Hook(name);
 }
+
+export const hookDecorator = function () {
+    debugLib("Averdolaga")(arguments);
+    return function decorator (cls, methodName, target) {
+        debugLib("Averga")(target.value.bind());
+        process.exit(0);
+    }
+}
