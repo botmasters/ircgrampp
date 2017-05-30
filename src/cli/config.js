@@ -57,6 +57,7 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
                             config.get("irc:secure"),
         "oneConnectionByUser": config.get("oneConnectionByUser") || false,
         "ircScapeCharacter": config.get("ircScapeCharacter") || "",
+        "showJoinLeft": config.get("showJoinLeft") || true,
         "prefix": config.get("prefix") || "telegram_",
         "suffix": config.get("suffix") || "",
     }, defaults);
@@ -119,6 +120,12 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
             name: "ircScapeCharacter",
             message: "Do you use one especial character for IRC bots?",
             default: defaultsOptions["ircScapeCharacter"],
+        },
+        {
+            type: "confirm",
+            name: "showJoinLeft",
+            message: "Do you want to show who join or left irc channel in Telegram?",
+            default: defaultsOptions["showJoinLeft"],
         },
         {
             type: "input",
@@ -345,6 +352,7 @@ const editBridge = function () {
                                 bconfig.get("irc:secure"),
             "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
             "ircScapeCharacter": bconfig.get("ircScapeCharacter"),
+            "showJoinLeft": bconfig.get("showJoinLeft"),
             "prefix": bconfig.get("prefix"),
             "suffix": bconfig.get("suffix"),
         };

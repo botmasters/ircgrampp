@@ -23,6 +23,7 @@ export const defaultConfig = {
     telegram: null,
     lang: null,
     oneConnectionByUser: false,
+    showJoinLeft: true,
     prefix: "telegram_",
     suffix: "",
     ircScapeCharacter: "",
@@ -320,7 +321,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} user IRC user
      */
     _handleIRCJoin(user) {
-        if (this._haveIrcUser(user)) {
+        if (this._haveIrcUser(user) || !this._options.showJoinLeft) {
             return;
         }
         debug("irc join", user);
@@ -333,7 +334,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} user Irc user
      */
     _handleIRCLeft(user) {
-        if (this._haveIrcUser(user)) {
+        if (this._haveIrcUser(user) || !this._options.showJoinLeft) {
             return;
         }
         debug("irc left", user);

@@ -122,6 +122,7 @@ export const getBridgeConfig = function (name) {
         prefix: config.get("prefix"),
         suffix: config.get("suffix"), 
         oneConnectionByUser: config.get("oneConnectionByUser"),
+        showJoinLeft: config.get("showJoinLeft"),
         ircScapeCharacter: config.get("ircScapeCharacter"),
     }, bridge);
 
