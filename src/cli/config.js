@@ -384,6 +384,13 @@ const deleteBridges = function () {
     let bridges = config.get("bridges")
         .map(x => x.name);
 
+    debug("Delete bridges menu");
+
+    if (!bridges.length) {
+        debug("No bridges to delete");
+        return Promise.reject(new Error('No bridges to delete'));
+    }
+
     return inquirer.prompt({
         type: "checkbox",
         name: "bridges",
