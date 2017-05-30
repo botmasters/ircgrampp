@@ -25,6 +25,7 @@ export const defaultConfig = {
     oneConnectionByUser: false,
     prefix: "telegram_",
     suffix: "",
+    ircScapeCharacter: "",
 };
 
 let userInstances = [];
@@ -360,9 +361,15 @@ export default class Bridge extends EventEmitter {
      */
     _handleTelegramMessage(user, message) {
         debug("telegram in message", user);
+
+        let scape_char = this._options.ircScapeCharacter;
+
         if (this._options.oneConnectionByUser) {
             let chan = this._getIrcUserChan(user.username);
             chan.sendMessage(message);
+        } else if (scape_char && message.startsWith(scape_char)){
+            this._ircChannel.sendMessage(message);
+
         } else {
             let msg = `[Telegram/@${user.username}] ${message}`;
             this._ircChannel.sendMessage(msg);
