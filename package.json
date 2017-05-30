@@ -1,6 +1,6 @@
 {
   "name": "ircgrampp",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "description": "IRCGram++ is a complexly simple Telegram <-> IRC Gateway",
   "main": "lib/index.js",
   "repository": {
