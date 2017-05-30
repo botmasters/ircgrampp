@@ -328,12 +328,20 @@ const editBridge = function () {
     let bconfig = etc();
     let originalName;
 
+    debug("Edit bridge menu", bridges);
+
+    if (!bridges.length) {
+        return Promise.reject(new Error('No bridges to edit'));
+    }
+
     return inquirer.prompt({
         type: "list",
         name: "bridge",
         choices: bridges,
         message: "Select bridge to edit",
     }).then((res) => {
+        debug("select", res);
+
         let bridgeConfig = getBridgeConfig(res.bridge);
         originalName = res.bridge;
         bconfig.add(bridgeConfig);
@@ -392,6 +400,13 @@ const deleteBridges = function () {
     let bridges = config.get("bridges")
         .map(x => x.name);
 
+    debug("Delete bridges menu");
+
+    if (!bridges.length) {
+        debug("No bridges to delete");
+        return Promise.reject(new Error('No bridges to delete'));
+    }
+
     return inquirer.prompt({
         type: "checkbox",
         name: "bridges",
@@ -440,6 +455,9 @@ export default function () {
         })
         .catch(CancelSignal, () => {
             process.exit(0);
+        })
+        .catch((err) => {
+            process.stderr.write(`${err.message}\n`);
+            process.exit(1);
         });
-
 }
