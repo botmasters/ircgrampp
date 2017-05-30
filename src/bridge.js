@@ -8,7 +8,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
 import escapeStringRegExp from "escape-string-regexp";
-import {declareHook} from "./hooks";
+import {declareHook, hookDecorator} from "./hooks";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
@@ -44,6 +44,7 @@ export const resolveNick = function(name, options) {
 };
 
 const getUserBridgeByOptionsHook = declareHook("userbridge:get.by.options");
+// const getBridgeByOptionsHook = declareHook("bridge:get.by.options");
 
 /**
  * User bridge, for oneConnectionByUser option
@@ -218,7 +219,13 @@ export default class Bridge extends EventEmitter {
             telegramLeft: this._handleTelegramLeft.bind(this),
         };
 
+        this._hooks = {
+            create: declareHook("bridge:create"),
+        }
+
         this.bind();
+
+        this._hooks.create.after(this);
 
     }
 
@@ -247,6 +254,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} username Telegram username
      * @return {UserBridge}
      */
+    @hookDecorator("bridge:get.irc.user", false)
     _getIrcUser(username) {
         let user = this._ircUsers.find(
             x => x.name === username);
