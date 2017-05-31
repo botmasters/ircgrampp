@@ -14,6 +14,7 @@ const debug = {
 
 const NEW_CHAT_PARTICIPANT = "new_chat_participant";
 const LEFT_CHAT_PARTICIPANT = "left_chat_participant";
+const CHANEXP = /^-?[0-9]+$/;
 
 const defaultConfig = {
     token: null,
@@ -37,6 +38,11 @@ export class TelegramChannel extends EventEmitter {
         debug.channel("Start channel");
         this._channel = channel;
         this._connector = connector;
+
+        if (typeof this._channel === 'string' && this._channel.match(CHANEXP)) {
+            debug.channel("Channel is string but has format of ID");
+            this._channel = parseInt(this._channel, 10);
+        }
 
         this._hasInfo = false;
         this._chatId = null;
