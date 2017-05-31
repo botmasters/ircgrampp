@@ -5,6 +5,8 @@ import etc from "etc";
 import {assignIn} from "lodash";
 import {
     checkConfigDir,
+    checkDataDir,
+    createConfigDir,
     createDataDir,
     renderConfigFile,
     getBridgeConfig,
@@ -227,22 +229,48 @@ const confirm = function(text) {
 }
 
 const initConfig = function () {
-    let direxists = checkConfigDir();
 
-    if (direxists) {
-        return Promise.resolve();
-    }
-
-    return confirm("App directory does not exists, you can to create it?")
-        .then((res) => {
-            if (res) {
+    return new Promise((resolve) => {
+        return resolve(checkConfigDir());
+    })
+        .then((configExists) => {
+            if (!configExists) {
+                return confirm(
+                    "Config directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateConfigDir) => {
+            if (doesCreateConfigDir) {
+                return createConfigDir();
+            } else {
+                return false;
+            }
+        })
+        .then(() => {
+            return checkDataDir();
+        })
+        .then((dataDirExists) => {
+            if (!dataDirExists) {
+                return confirm(
+                    "Data directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateDataDir) => {
+            if (doesCreateDataDir) {
                 return createDataDir();
             } else {
-                debug(`User cancel`);
+                return false;
+            }
+        })
+        .then(() => {
+            if (!checkConfigDir() || !checkDataDir()) {
                 throw new CancelSignal();
             }
         });
-
 }
 
 const showMenu = function () {
