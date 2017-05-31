@@ -7,7 +7,10 @@ import {ChannelsInfo} from "./storage";
 
 var Promise = require("bluebird");
 
-const debug = debugLib("telegram");
+const debug = {
+    channel: debugLib("telegram-channel"),
+    connection: debugLib("telegram-connection"),
+};
 
 const NEW_CHAT_PARTICIPANT = "new_chat_participant";
 const LEFT_CHAT_PARTICIPANT = "left_chat_participant";
@@ -31,7 +34,7 @@ export class TelegramChannel extends EventEmitter {
      */
     constructor(channel, connector) {
         super();
-        debug("Start channel");
+        debug.channel("Start channel");
         this._channel = channel;
         this._connector = connector;
 
@@ -51,9 +54,10 @@ export class TelegramChannel extends EventEmitter {
         };
 
         if (chatInfo) {
-            debug("Heve info about channel, setting");
+            debug.channel("Have info about channel, setting");
             this.setData(chatInfo, false);
         } else {
+            debug.channel("Don't have info about channel, bind");
             this.bind();
         }
 
@@ -61,6 +65,7 @@ export class TelegramChannel extends EventEmitter {
 
     _handleMessage(user, message) {
         if (!message) {
+            debug.channel("unknow message, ignoring");
             return;
         }
         this.emit("message", user, message);
@@ -83,7 +88,7 @@ export class TelegramChannel extends EventEmitter {
     unbind() {
         let prefix = this.channelPrefix;
 
-        debug(`unbind channel ${prefix}`);
+        debug.channel(`unbind channel ${prefix}`);
 
         this._connector.removeListener(`${prefix}:message`,
             this._handlers.message);
@@ -102,7 +107,7 @@ export class TelegramChannel extends EventEmitter {
 
         let prefix = this.channelPrefix;
 
-        debug(`bind channel ${prefix}`);
+        debug.channel(`bind channel ${prefix}`);
 
         this._connector.on(`${prefix}:message`,
             this._handlers.message);
@@ -124,9 +129,7 @@ export class TelegramChannel extends EventEmitter {
      */
     setData(data, sync = true) {
 
-        if (typeof this._channel === "string") {
-            this.unbind();
-        }
+        this.unbind();
         
         if (sync && 
             (this._chatTitle !== data.title || this._chatType !== data.type)) {
@@ -140,10 +143,9 @@ export class TelegramChannel extends EventEmitter {
         this._chatTitle = data.title;
         this._chatLastUpdated = data.updated;
 
-        if (typeof this._channel === "string") {
-            this.bind();
-        }
+        this.bind();
 
+        debug.channel("Information updateted");
         this.emit("updateinformation");
     }
 
@@ -287,7 +289,7 @@ export default class TelegramConnection extends EventEmitter {
         };
 
         channelsInfo.save(data);
-        debug("channel info update", data.id, data.title);
+        debug.connection("channel info update", data.id, data.title);
         this.emit("chatinformationupdate", data);
     }
 
@@ -312,7 +314,7 @@ export default class TelegramConnection extends EventEmitter {
             return this._tgBot;
         }
 
-        debug("Token", this._options.token);
+        debug.connection("Token", this._options.token);
         this._tgBot = new TelegramBot(this._options.token, {
             polling: true
         });
@@ -321,7 +323,7 @@ export default class TelegramConnection extends EventEmitter {
             let {from, text, chat}  = msg;
             let {idPrefix, titlePrefix} = this.getChatEvPrefix(msg);
             this.refreshChatInformation(chat);
-            debug(`${titlePrefix} (${idPrefix}): ${from.id} -> ${text}`);
+            debug.connection(`${titlePrefix} (${idPrefix}): ${from.id} -> ${text}`);
             this.emit("telegram:message", chat, from, text);
             this.emit(`${idPrefix}:message`, from, text, chat);
             this.emit(`${titlePrefix}:message`, from, text, chat);
@@ -331,7 +333,7 @@ export default class TelegramConnection extends EventEmitter {
             let newParticipant = msg[NEW_CHAT_PARTICIPANT];
             let {idPrefix, titlePrefix} = this.getChatEvPrefix(msg);
             this.refreshChatInformation(msg.chat);
-            debug(`${titlePrefix} (${idPrefix}): ` +
+            debug.connection(`${titlePrefix} (${idPrefix}): ` +
                   `new participant ${newParticipant}`);
             this.emit("telegram:newparticipant", msg.chat, newParticipant);
             this.emit(`${idPrefix}:newparticipant`, newParticipant);
@@ -342,7 +344,7 @@ export default class TelegramConnection extends EventEmitter {
             let {idPrefix, titlePrefix} = this.getChatEvPrefix(msg);
             let leftParticipant = msg[LEFT_CHAT_PARTICIPANT];
             this.refreshChatInformation(msg.chat);
-            debug(`${titlePrefix} (${idPrefix}): ` +
+            debug.connection(`${titlePrefix} (${idPrefix}): ` +
                   `left participant ${leftParticipant}`);
             this.emit("telegram:leftparticipant", msg.chat, leftParticipant);
             this.emit(`${idPrefix}:leftparticipant`, leftParticipant);
