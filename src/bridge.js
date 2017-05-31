@@ -33,13 +33,15 @@ let userInstances = [];
 
 /**
  * Resolve nicks with the prefix and suffix options
- * @param {string} name
+ * @param {object} userData
  * @param {object} options
  * @return {string}
  */
-export const resolveNick = function(name, options) {
+export const resolveNick = function(userData, options) {
     "use strict";
-    name = name.replace(/[^\w_]/, '');
+    let name = (userData.username ||
+        `${userData.first_name}-${userData.id}`) 
+        .replace(/[^a-z_]+/ig, '');
     let {prefix, suffix} = options;
     return `${prefix}${name}${suffix}`; 
 };
@@ -51,10 +53,10 @@ export class UserBridge extends EventEmitter {
 
     /**
      * Create new UserBridge
-     * @param {string} name The original name (Telegram username)
+     * @param {object} userData The telegram format user information
      * @param {object} options Bridge options
      */
-    constructor(name, options) {
+    constructor(userData, options) {
         super();
 
         this._options = assignIn({}, {
@@ -62,9 +64,12 @@ export class UserBridge extends EventEmitter {
             suffix: "",
         }, options);
 
-        this._name = name;
+        this._userData = userData;
 
-        let rnick = resolveNick(this._name, this._options);
+        this._name = userData.username ||
+            `${userData.first_name}-${userData.id}`; 
+
+        let rnick = resolveNick(userData, this._options);
 
         let serveropts =  assignIn(
             {}, options.irc, {nick: rnick}
@@ -98,7 +103,7 @@ export class UserBridge extends EventEmitter {
      * @property nick
      */
     get nick() {
-        return resolveNick(this._name, this._options);
+        return resolveNick(this._userData, this._options);
     }
 
     /**
@@ -110,34 +115,42 @@ export class UserBridge extends EventEmitter {
     }
 
     /**
+     * Original telegram id
+     * @property tid
+     */
+    get tid() {
+        return this._userData.id;
+    }
+
+    /**
      * Unique identifier, generated with username and server options
      * @property identifier
      */
     get identifier() {
-        let name = this._name;
+        let tid = this.tid;
         let ircIdent = this._ircConnection.identifier;
-        return `${name}@@${ircIdent}`;
+        return `${tid}@@${ircIdent}`;
     }
 
     /**
      * Get UserBridge by options
-     * @param {string} nick Original username
+     * @param {object} userData Original information
      * @param {object} options Bridge options
      * @return {UserBridge}
      */
-    static getByOptions(nick, options) {
-        let rnick = resolveNick(nick, options);
+    static getByOptions(userData, options) {
+        let rnick = resolveNick(userData, options);
         let ircOptions = assignIn({}, options.irc, {nick: rnick});
         let irc = IRCConnection.getByServerOptions(
             ircOptions);
         let ircIdent = irc.identifier;
-        let userIdent = `${nick}@@${ircIdent}`;
+        let userIdent = `${userData.id}@@${ircIdent}`;
         debug(`Find for UserBridge ${userIdent}`);
         let instance = userInstances.find(u => u.identifier === userIdent);
 
         if (!instance) {
             debug("Not foud, creating");
-            instance = new UserBridge(nick, options);
+            instance = new UserBridge(userData, options);
         }
 
         return instance;
@@ -225,15 +238,15 @@ export default class Bridge extends EventEmitter {
 
     /**
      * Get UserBridge from a telegram user
-     * @param {string} username Telegram username
+     * @param {object} userData Telegram user information
      * @return {UserBridge}
      */
-    _getIrcUser(username) {
+    _getIrcUser(userData) {
         let user = this._ircUsers.find(
-            x => x.name === username);
+            x => x.tid === userData.id);
 
         if (!user) {
-            user = UserBridge.getByOptions(username, this._options);
+            user = UserBridge.getByOptions(userData, this._options);
             this._ircUsers.push(user);
         }
 
@@ -258,11 +271,11 @@ export default class Bridge extends EventEmitter {
 
     /**
      * Return the final IRCChannel from an UserBridge
-     * @param {string} username Telegram username
+     * @param {object} userData Telegram user information
      * @return {IRCChannel}
      */
-    _getIrcUserChan(username) {
-        let user = this._getIrcUser(username);
+    _getIrcUserChan(userData) {
+        let user = this._getIrcUser(userData);
         let chan = user.getChannel(this._ircChannel.name);
         return chan;
     }
@@ -321,12 +334,15 @@ export default class Bridge extends EventEmitter {
      * @param {string} user IRC user
      */
     _handleIRCJoin(user) {
-        if (this._haveIrcUser(user) || !this._options.showJoinLeft) {
+        if (this._haveIrcUser(user)) {
             return;
         }
         debug("irc join", user);
-        let msg = `_*<${user}> has joined*_`;
-        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
+
+        if (this._options.showJoinLeft) {
+            let msg = `_*<${user}> has joined*_`;
+            this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
+        }
     }
 
     /**
@@ -334,12 +350,16 @@ export default class Bridge extends EventEmitter {
      * @param {string} user Irc user
      */
     _handleIRCLeft(user) {
-        if (this._haveIrcUser(user) || !this._options.showJoinLeft) {
+        if (this._haveIrcUser(user)) {
             return;
         }
+
         debug("irc left", user);
-        let msg = `_*${user} left the channel*_`;
-        this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
+
+        if (this._options.showJoinLeft) {
+            let msg = `_*${user} left the channel*_`;
+            this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
+        }   
     }
 
     /**
@@ -366,7 +386,7 @@ export default class Bridge extends EventEmitter {
         let scapeChar = this._options.ircScapeCharacter;
 
         if (this._options.oneConnectionByUser) {
-            let chan = this._getIrcUserChan(user.username);
+            let chan = this._getIrcUserChan(user);
             chan.sendMessage(message);
         } else if (scapeChar && message.startsWith(scapeChar)){
             this._ircChannel.sendMessage(message);
@@ -384,7 +404,7 @@ export default class Bridge extends EventEmitter {
     _handleTelegramJoin(user) {
         debug("telegram in join", user);
         if (this._options.oneConnectionByUser) {
-            this._getIrcUserChan(user.username);
+            this._getIrcUserChan(user);
         } else {
             let msg = `[Telegram] ${user.username} join`;
             this._ircChannel.sendMessage(msg);
@@ -399,7 +419,7 @@ export default class Bridge extends EventEmitter {
         debug("telegram left", user);
         if (this._options.oneConnectionByUser) {
             if (this._haveIrcUser(user)) {
-                let chan = this._getIrcUserChan(user.username);
+                let chan = this._getIrcUserChan(user);
                 chan.destroy();
             }
         } else {
