@@ -5,6 +5,8 @@ import etc from "etc";
 import {assignIn} from "lodash";
 import {
     checkConfigDir,
+    checkDataDir,
+    createConfigDir,
     createDataDir,
     renderConfigFile,
     getBridgeConfig,
@@ -48,6 +50,8 @@ const options = [
 const generateConfigQuestions = function (defaults = {}, options = {}) {
 
     let defaultsOptions = assignIn({}, {
+        "user": config.get("user") || undefined,
+        "group": config.get("group") || undefined,
         "telegram:token": config.get("telegram:token") || undefined,
         "irc:server": config.get("irc:server") || undefined,
         "irc:port": config.get("irc:port") || 6697,
@@ -62,7 +66,27 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
         "suffix": config.get("suffix") || "",
     }, defaults);
 
-    return [
+    let suQuestions = [];
+
+    if (process.getuid() === 0 && !options.ignoreSuQuestions) {
+        suQuestions = [
+            {
+                type: "input",
+                name: "user",
+                message: "Daemon UID",
+                default: defaultsOptions["user"],
+            },
+            {
+                type: "input",
+                name: "group",
+                message: "Daemon GID",
+                default: defaultsOptions["group"],
+            },
+        ];
+    }
+
+    return[
+        ...suQuestions,
         {
             type: "input",
             name: "telegram:token",
@@ -177,7 +201,9 @@ const generateBridgeConfigQuestions = function (defaults = {}) {
             }
         },
         ...generateConfigQuestions(defaultsOptions, {
-            ircNickNameRequired: true }),
+            ircNickNameRequired: true,
+            ignoreSuQuestions: true,
+        }),
         {
             type: "input",
             name: "irc:channel",
@@ -227,22 +253,48 @@ const confirm = function(text) {
 }
 
 const initConfig = function () {
-    let direxists = checkConfigDir();
 
-    if (direxists) {
-        return Promise.resolve();
-    }
-
-    return confirm("App directory does not exists, you can to create it?")
-        .then((res) => {
-            if (res) {
+    return new Promise((resolve) => {
+        return resolve(checkConfigDir());
+    })
+        .then((configExists) => {
+            if (!configExists) {
+                return confirm(
+                    "Config directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateConfigDir) => {
+            if (doesCreateConfigDir) {
+                return createConfigDir();
+            } else {
+                return false;
+            }
+        })
+        .then(() => {
+            return checkDataDir();
+        })
+        .then((dataDirExists) => {
+            if (!dataDirExists) {
+                return confirm(
+                    "Data directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateDataDir) => {
+            if (doesCreateDataDir) {
                 return createDataDir();
             } else {
-                debug(`User cancel`);
+                return false;
+            }
+        })
+        .then(() => {
+            if (!checkConfigDir() || !checkDataDir()) {
                 throw new CancelSignal();
             }
         });
-
 }
 
 const showMenu = function () {

@@ -4,10 +4,10 @@ import packageInfo from "../../package.json";
 import startProgram from "./start";
 import configProgram from "./config";
 
-/*process.on("uncaughtException", (err) => {
+process.on("uncaughtException", (err) => {
     process.stderr.write(`${err}\n`);
     process.exit(12);
-});*/
+});
 
 program
     .version(packageInfo.version)
