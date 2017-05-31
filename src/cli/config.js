@@ -50,6 +50,8 @@ const options = [
 const generateConfigQuestions = function (defaults = {}, options = {}) {
 
     let defaultsOptions = assignIn({}, {
+        "user": config.get("user") || undefined,
+        "group": config.get("group") || undefined,
         "telegram:token": config.get("telegram:token") || undefined,
         "irc:server": config.get("irc:server") || undefined,
         "irc:port": config.get("irc:port") || 6697,
@@ -64,7 +66,27 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
         "suffix": config.get("suffix") || "",
     }, defaults);
 
-    return [
+    let suQuestions = [];
+
+    if (process.getuid() === 0 && !options.ignoreSuQuestions) {
+        suQuestions = [
+            {
+                type: "input",
+                name: "user",
+                message: "Daemon UID",
+                default: defaultsOptions["user"],
+            },
+            {
+                type: "input",
+                name: "group",
+                message: "Daemon GID",
+                default: defaultsOptions["group"],
+            },
+        ];
+    }
+
+    return[
+        ...suQuestions,
         {
             type: "input",
             name: "telegram:token",
@@ -179,7 +201,9 @@ const generateBridgeConfigQuestions = function (defaults = {}) {
             }
         },
         ...generateConfigQuestions(defaultsOptions, {
-            ircNickNameRequired: true }),
+            ircNickNameRequired: true,
+            ignoreSuQuestions: true,
+        }),
         {
             type: "input",
             name: "irc:channel",

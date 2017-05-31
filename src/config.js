@@ -160,7 +160,9 @@ export const config = etc()
         bridges: values(bridges.toJSON())
     })
     .add({
-        channelsdb: path.join(dataDir, "channels.dat")
+        channelsdb: path.join(dataDir, "channels.dat"),
+        user: 'nobody',
+        group: 'nobody',
     });
 
 export default config;
