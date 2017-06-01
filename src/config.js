@@ -54,6 +54,14 @@ if (UID === 0) {
     dataDir = path.join(homeDir, `.${packageInfo.name}`);
 }
 
+if (process.env[`${packageInfo.name.toUpperCase()}_CONFIG_DIR`]) {
+    configDir = process.env[`${packageInfo.name.toUpperCase()}_CONFIG_DIR`];
+}
+
+if (process.env[`${packageInfo.name.toUpperCase()}_DATA_DIR`]) {
+    dataDir = process.env[`${packageInfo.name.toUpperCase()}_DATA_DIR`];
+}
+
 const confpath = path.join(configDir, "config.yml");
 const bridgespath = path.join(configDir, "bridges");
 const pluginspath  = path.join(configDir, "plugins");
