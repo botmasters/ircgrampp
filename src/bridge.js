@@ -8,7 +8,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
 import escapeStringRegExp from "escape-string-regexp";
-import {declareHook, hookDecorator} from "./hooks";
+import {syncHookedMethod, asyncHookedMethod} from "./hooks";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
@@ -43,9 +43,6 @@ export const resolveNick = function(name, options) {
     return `${prefix}${name}${suffix}`; 
 };
 
-const getUserBridgeByOptionsHook = declareHook("userbridge:get.by.options");
-// const getBridgeByOptionsHook = declareHook("bridge:get.by.options");
-
 /**
  * User bridge, for oneConnectionByUser option
  */
@@ -58,18 +55,17 @@ export class UserBridge extends EventEmitter {
      */
     constructor(name, options) {
         super();
+        this._constructor(name, options);
+    }
 
+    @syncHookedMethod('userbridge:create', 'name', 'options')
+    _constructor(name, options) {
         this._options = assignIn({}, {
             prefix: "tele_",
             suffix: "",
         }, options);
 
         this._name = name;
-
-        this._hooks = {
-            create: declareHook("userbridge:create"),
-            getChannel: declareHook("userbridge:get.channel"),
-        };
 
         let rnick = resolveNick(this._name, this._options);
 
@@ -82,8 +78,8 @@ export class UserBridge extends EventEmitter {
         this._ircConnection = IRCConnection.getByServerOptions(serveropts);
 
         userInstances.push(this);
-        this._hooks.create.after(this);
 
+        return this;
     }
 
     /**
@@ -91,17 +87,13 @@ export class UserBridge extends EventEmitter {
      * @param {string} channelName IRC channel name
      * @return {IRCChannel}
      */
+    @syncHookedMethod('userbridge:get.channel')
     getChannel(channelName) {
-
-        this._hooks.getChannel.before(channelName);
-
         let channel = this._ircConnection.getChannel(channelName); 
             
         if (!channel) {
             channel = this._ircConnection.addChannel(channelName);
         }
-
-        this._hooks.getChannel.after(channel);
 
         return channel;
     }
@@ -138,15 +130,8 @@ export class UserBridge extends EventEmitter {
      * @param {object} options Bridge options
      * @return {UserBridge}
      */
-    static getByOptions(unick, uoptions) {
-
-        let params = getUserBridgeByOptionsHook.beforeSync({
-            nick: unick,
-            options: uoptions
-        });
-
-        let {nick, options} = params;
-
+    @syncHookedMethod('userbridge:get.by.options', 'nick', 'options')
+    static getByOptions(nick, options) {
         let rnick = resolveNick(nick, options);
         let ircOptions = assignIn({}, options.irc, {nick: rnick});
         let irc = IRCConnection.getByServerOptions(
@@ -161,8 +146,7 @@ export class UserBridge extends EventEmitter {
             instance = new UserBridge(nick, options);
         }
 
-        return getUserBridgeByOptionsHook.afterSync(instance);
-
+        return instance;
     }
     
 }
@@ -187,7 +171,12 @@ export default class Bridge extends EventEmitter {
      */
     constructor(name, ircChannel, telegramChannel, options) {
         super();
+        this._constructor(name, ircChannel, telegramChannel, options);
+    }
 
+    @syncHookedMethod('bridge:create',
+        'name', 'ircChannel', 'telegramChannel', 'options')
+    _constructor(name, ircChannel, telegramChannel, options) {
         this._options = assignIn(
             {}, defaultConfig, options);
 
@@ -219,14 +208,9 @@ export default class Bridge extends EventEmitter {
             telegramLeft: this._handleTelegramLeft.bind(this),
         };
 
-        this._hooks = {
-            create: declareHook("bridge:create"),
-        }
-
         this.bind();
 
-        this._hooks.create.after(this);
-
+        return this;
     }
 
     /**
@@ -254,7 +238,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} username Telegram username
      * @return {UserBridge}
      */
-    @hookDecorator("bridge:get.irc.user", false)
+    @syncHookedMethod("bridge:get.irc.user")
     _getIrcUser(username) {
         let user = this._ircUsers.find(
             x => x.name === username);
@@ -288,6 +272,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} username Telegram username
      * @return {IRCChannel}
      */
+    @syncHookedMethod('bridge:get.irc.user.channel')
     _getIrcUserChan(username) {
         let user = this._getIrcUser(username);
         let chan = user.getChannel(this._ircChannel.name);
@@ -310,6 +295,7 @@ export default class Bridge extends EventEmitter {
      * @param {string} user IRC user
      * @param {string} message Message
      */
+    @asyncHookedMethod('bridge:irc.handle.message', 'user', 'message')
     _handleIRCMessage(user, message) {
         if (this._haveIrcUser(user)) {
             return;
@@ -355,6 +341,7 @@ export default class Bridge extends EventEmitter {
      * @param {object} user Telegram user data 
      * @param {string} message Text message
      */
+    @asyncHookedMethod('bridge:telegram.handle.message', 'user', 'message')
     _handleTelegramMessage(user, message) {
         debug("telegram in message", user);
         if (this._options.oneConnectionByUser) {
