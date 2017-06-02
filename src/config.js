@@ -4,6 +4,7 @@
  * @TODO: Add expire time for channel info storage 
  */
 
+import packageInfo from "../package.json";
 import fs from "fs";
 import path from "path";
 import {userInfo} from "os"; 
@@ -15,34 +16,100 @@ import debugLib from "debug";
 
 const debug = debugLib("config");
 
-let homedir;
+const UID = process.getuid();
 
-if (process.versions.node.match(/^[56]\./)) {
-    homedir = process.env[(
-        process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
-} else if (process.versions.node.match(/^7\./)) {
-    let user = userInfo();
-    homedir = user.homedir;
+let etcDir;
+let varLibDir;
+let dataDir;
+let configDir;
+let homeDir;
+
+if (process.platform === 'win32') {
+    varLibDir =  process.env['ALLUSERSAPPDATA'];
+    etcDir = varLibDir;
+} else {
+    // Asume unix
+    etcDir = '/etc';
+    varLibDir = '/var/lib';
 }
 
-const appdir = path.join(homedir, ".ircgrampp");
-const confpath = path.join(appdir, "config.yml");
-const bridgespath = path.join(appdir, "bridges");
-const pluginspath  = path.join(appdir, "plugins");
+if (UID === 0) {
+    configDir = path.join(etcDir, packageInfo.name);
+    dataDir = path.join(varLibDir, packageInfo.name);
+} else {
+    if (process.versions.node.match(/^6\./)) {
+        if (process.platform === 'win32') {
+            homeDir = process.env['USERPROFILE'] || process.env['HOMEPATH'];
+        } else { 
+            homeDir = process.env['HOME'];
+        }
+    } else if (process.versions.node.match(/^7\./)) {
+        let user = userInfo();
+        homeDir = user.homedir;
+    } else {
+        throw new Error('Incompatible node version');
+    }
 
-export const createDataDir = function () {
-    debug(`Creating app directory in ${appdir}`);
-    fs.mkdirSync(appdir, 0o700);
-    fs.mkdirSync(bridgespath, 0o700);
-    fs.mkdirSync(pluginspath, 0o700);
+    configDir = path.join(homeDir,`.${packageInfo.name}`);
+    dataDir = path.join(homeDir, `.${packageInfo.name}`);
+}
+
+if (process.env[`${packageInfo.name.toUpperCase()}_CONFIG_DIR`]) {
+    configDir = process.env[`${packageInfo.name.toUpperCase()}_CONFIG_DIR`];
+}
+
+if (process.env[`${packageInfo.name.toUpperCase()}_DATA_DIR`]) {
+    dataDir = process.env[`${packageInfo.name.toUpperCase()}_DATA_DIR`];
+}
+
+const confpath = path.join(configDir, "config.yml");
+const bridgespath = path.join(configDir, "bridges");
+const pluginspath  = path.join(configDir, "plugins");
+
+export const createDir = function (dir) {
+    fs.mkdirSync(dir, 0o700);
+}
+
+export const createConfigDir = function() {
+    debug(`Creating config directory in ${configDir}`);
+    createDir(configDir);
+    createDir(bridgespath);
+    createDir(pluginspath);
+}
+
+export const createDataDir = function() {
+    debug(`Creating data directory in ${dataDir}`);
+    return createDir(dataDir);
 }
 
 export const checkConfigDir = function (created = false) {
     let stats;
-    debug(`Check for app directory in ${appdir}`);
+    debug(`Check config directory ${configDir}`);
 
     try {
-        stats = fs.lstatSync(appdir);
+        stats = fs.lstatSync(configDir);
+    } catch (e) {
+        debug(`Does not exist`);
+        if (created) {
+            return createConfigDir();
+        }
+
+        return false;
+    }
+
+    if (!stats.isDirectory(configDir)) {
+        throw new Error(`${configDir} is not a directory`);
+    }
+
+    return true;
+}
+
+export const checkDataDir = function (created = false) {
+    let stats;
+    debug(`Check data directory ${dataDir}`);
+
+    try {
+        stats = fs.lstatSync(dataDir);
     } catch (e) {
         debug(`Does not exist`);
         if (created) {
@@ -52,12 +119,11 @@ export const checkConfigDir = function (created = false) {
         return false;
     }
 
-    if (!stats.isDirectory(appdir)) {
-        throw new Error(`${appdir} is not a directory`);
+    if (!stats.isDirectory(dataDir)) {
+        throw new Error(`${dataDir} is not a directory`);
     }
 
     return true;
-
 }
 
 export const renderConfigFile = function (configJson = null, final = false) {
@@ -102,7 +168,9 @@ export const config = etc()
         bridges: values(bridges.toJSON())
     })
     .add({
-        channelsdb: path.join(appdir, "channels.dat")
+        channelsdb: path.join(dataDir, "channels.dat"),
+        user: 'nobody',
+        group: 'nobody',
     });
 
 export default config;
@@ -122,6 +190,8 @@ export const getBridgeConfig = function (name) {
         prefix: config.get("prefix"),
         suffix: config.get("suffix"), 
         oneConnectionByUser: config.get("oneConnectionByUser"),
+        showJoinLeft: config.get("showJoinLeft"),
+        ircScapeCharacter: config.get("ircScapeCharacter"),
     }, bridge);
 
     for (let i in bridge) {

@@ -44,6 +44,8 @@ export class IRCChannel extends EventEmitter {
             message: this._handleMessage.bind(this),
             join: this._handleJoin.bind(this),
             left: this._handleLeft.bind(this),
+            topic: this._handleTopic.bind(this),
+            action: this._handleAction.bind(this),
             changeNick: this._handleChangeNick.bind(this),
         };
 
@@ -59,12 +61,24 @@ export class IRCChannel extends EventEmitter {
         this.emit("message", nick, message);
     }
 
+    _handleAction(nick, message) {
+        if (!message) {
+            return;
+        }
+
+        this.emit("action", nick, message);
+    }
+
     _handleJoin(nick) {
         this.emit("join", nick);
     }
 
     _handleLeft(nick) {
         this.emit("left", nick);
+    }
+
+    _handleTopic(channel, topic, nick, message) {
+        this.emit("topic", channel, topic, nick, message);
     }
 
     _handleChangeNick(oldNick, newNick) {
@@ -81,8 +95,14 @@ export class IRCChannel extends EventEmitter {
         this._connection.on(`${channel}:part`,
             this._handlers.left);
         
+        this._connection.on(`${channel}:topic`,
+            this._handlers.topic);
+
         this._connection.on(`${channel}:message`,
             this._handlers.message);
+
+        this._connection.on(`${channel}:action`,
+            this._handlers.action);
 
         this._connection.on("changeMasterNick",
             this._handlers.changeNick);
@@ -98,8 +118,14 @@ export class IRCChannel extends EventEmitter {
         this._connection.removeListener(`${channel}:part`,
             this._handlers.left);
         
+        this._connection.removeListener(`${channel}:topic`,
+            this._handlers.topic);
+
         this._connection.removeListener(`${channel}:message`,
             this._handlers.message);
+
+        this._connection.removeListener(`${channel}:action`,
+            this._handlers.action);
 
         this._connection.removeListener("changeMasterNick",
             this._handlers.changeNick);       
@@ -210,7 +236,20 @@ export default class IRCConnection extends EventEmitter {
         if (ownChannel && !ownChannel.hasNick(from)) {
             this.emit(`${ownChannel.name}:message`, from, message);
         }
+    }
 
+    /**
+     * Handle incomming action from the server
+     * @param {string} from
+     * @param {string} to
+     * @param {string} message
+     */
+    _handleIncommingAction(from, to, message) {
+        let ownChannel = this.getChannel(to);
+
+        if (ownChannel && !ownChannel.hasNick(from)) {
+            this.emit(`${ownChannel.name}:action`, from, message);
+        }
     }
 
     /**
@@ -224,6 +263,21 @@ export default class IRCConnection extends EventEmitter {
 
         if (ownChannel && !ownChannel.hasNick(nick)) {
             this.emit(`${ownChannel.name}:part`, nick, message);
+        }
+    }
+
+    /**
+     * Handle topic from the server
+     * @param {string} channel
+     * @param {string} topic
+     * @param {string} nick
+     * @param {string} message
+     */
+    _handleTopic(channel, topic, nick, message) {
+        let ownChannel = this.getChannel(channel);
+
+        if (ownChannel && !ownChannel.hasNick(nick)) {
+            this.emit(`${ownChannel.name}:topic`, channel, topic, nick, message);
         }
     }
 
@@ -315,6 +369,12 @@ export default class IRCConnection extends EventEmitter {
             return this._handleIncommingMessage(from, to, message);
         });
 
+        this._client.addListener("action", (from, to, message) => {
+            debug.irc(`${from} => ${to}: ${message}`);
+            this.emit("irc:action", from, to, message);
+            return this._handleIncommingAction(from, to, message);
+        });
+
         this._client.addListener("join", (channel, nick, message) => {
             debug.irc(`${nick} join in ${channel}`);
             this.emit("irc:join", channel, nick, message);
@@ -325,6 +385,12 @@ export default class IRCConnection extends EventEmitter {
             debug.irc(`${nick} part of ${channel}`);
             this.emit("irc:part", channel, nick, message);
             return this._handlePart(channel, nick, message);
+        });
+
+        this._client.addListener("topic", (channel, topic, nick, message) => {
+            debug.irc(`${nick} changed the topic of ${channel} to ${topic}`);
+            this.emit("irc:topic", channel, topic, nick, message);
+            return this._handleTopic(channel, topic, nick, message);
         });
 
         this._client.addListener("registered", (data) => {

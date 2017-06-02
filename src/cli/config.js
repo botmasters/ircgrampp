@@ -5,6 +5,8 @@ import etc from "etc";
 import {assignIn} from "lodash";
 import {
     checkConfigDir,
+    checkDataDir,
+    createConfigDir,
     createDataDir,
     renderConfigFile,
     getBridgeConfig,
@@ -48,6 +50,8 @@ const options = [
 const generateConfigQuestions = function (defaults = {}, options = {}) {
 
     let defaultsOptions = assignIn({}, {
+        "user": config.get("user") || undefined,
+        "group": config.get("group") || undefined,
         "telegram:token": config.get("telegram:token") || undefined,
         "irc:server": config.get("irc:server") || undefined,
         "irc:port": config.get("irc:port") || 6697,
@@ -56,11 +60,33 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
                             false :
                             config.get("irc:secure"),
         "oneConnectionByUser": config.get("oneConnectionByUser") || false,
+        "ircScapeCharacter": config.get("ircScapeCharacter") || "",
+        "showJoinLeft": config.get("showJoinLeft") || true,
         "prefix": config.get("prefix") || "telegram_",
         "suffix": config.get("suffix") || "",
     }, defaults);
 
-    return [
+    let suQuestions = [];
+
+    if (process.getuid() === 0 && !options.ignoreSuQuestions) {
+        suQuestions = [
+            {
+                type: "input",
+                name: "user",
+                message: "Daemon UID",
+                default: defaultsOptions["user"],
+            },
+            {
+                type: "input",
+                name: "group",
+                message: "Daemon GID",
+                default: defaultsOptions["group"],
+            },
+        ];
+    }
+
+    return[
+        ...suQuestions,
         {
             type: "input",
             name: "telegram:token",
@@ -115,6 +141,18 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
         },
         {
             type: "input",
+            name: "ircScapeCharacter",
+            message: "Do you use one especial character for IRC bots?",
+            default: defaultsOptions["ircScapeCharacter"],
+        },
+        {
+            type: "confirm",
+            name: "showJoinLeft",
+            message: "Do you want to show who join or left irc channel in Telegram?",
+            default: defaultsOptions["showJoinLeft"],
+        },
+        {
+            type: "input",
             name: "prefix",
             message: "Prefix for IRC users?",
             default: defaultsOptions["prefix"],
@@ -163,7 +201,9 @@ const generateBridgeConfigQuestions = function (defaults = {}) {
             }
         },
         ...generateConfigQuestions(defaultsOptions, {
-            ircNickNameRequired: true }),
+            ircNickNameRequired: true,
+            ignoreSuQuestions: true,
+        }),
         {
             type: "input",
             name: "irc:channel",
@@ -213,22 +253,48 @@ const confirm = function(text) {
 }
 
 const initConfig = function () {
-    let direxists = checkConfigDir();
 
-    if (direxists) {
-        return Promise.resolve();
-    }
-
-    return confirm("App directory does not exists, you can to create it?")
-        .then((res) => {
-            if (res) {
+    return new Promise((resolve) => {
+        return resolve(checkConfigDir());
+    })
+        .then((configExists) => {
+            if (!configExists) {
+                return confirm(
+                    "Config directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateConfigDir) => {
+            if (doesCreateConfigDir) {
+                return createConfigDir();
+            } else {
+                return false;
+            }
+        })
+        .then(() => {
+            return checkDataDir();
+        })
+        .then((dataDirExists) => {
+            if (!dataDirExists) {
+                return confirm(
+                    "Data directory does not exists, you can to create it?")
+            } else {
+                return false;
+            }
+        })
+        .then((doesCreateDataDir) => {
+            if (doesCreateDataDir) {
                 return createDataDir();
             } else {
-                debug(`User cancel`);
+                return false;
+            }
+        })
+        .then(() => {
+            if (!checkConfigDir() || !checkDataDir()) {
                 throw new CancelSignal();
             }
         });
-
 }
 
 const showMenu = function () {
@@ -314,12 +380,20 @@ const editBridge = function () {
     let bconfig = etc();
     let originalName;
 
+    debug("Edit bridge menu", bridges);
+
+    if (!bridges.length) {
+        return Promise.reject(new Error('No bridges to edit'));
+    }
+
     return inquirer.prompt({
         type: "list",
         name: "bridge",
         choices: bridges,
         message: "Select bridge to edit",
     }).then((res) => {
+        debug("select", res);
+
         let bridgeConfig = getBridgeConfig(res.bridge);
         originalName = res.bridge;
         bconfig.add(bridgeConfig);
@@ -337,6 +411,8 @@ const editBridge = function () {
                                 false :
                                 bconfig.get("irc:secure"),
             "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
+            "ircScapeCharacter": bconfig.get("ircScapeCharacter"),
+            "showJoinLeft": bconfig.get("showJoinLeft"),
             "prefix": bconfig.get("prefix"),
             "suffix": bconfig.get("suffix"),
         };
@@ -375,6 +451,13 @@ const editBridge = function () {
 const deleteBridges = function () {
     let bridges = config.get("bridges")
         .map(x => x.name);
+
+    debug("Delete bridges menu");
+
+    if (!bridges.length) {
+        debug("No bridges to delete");
+        return Promise.reject(new Error('No bridges to delete'));
+    }
 
     return inquirer.prompt({
         type: "checkbox",
@@ -424,6 +507,9 @@ export default function () {
         })
         .catch(CancelSignal, () => {
             process.exit(0);
+        })
+        .catch((err) => {
+            process.stderr.write(`${err.message}\n`);
+            process.exit(1);
         });
-
 }

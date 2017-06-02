@@ -16,5 +16,6 @@ module.exports = {
     rules: {
         "comma-dangle": 0,
         "no-debugger": 0,
+        "camelcase": 2,
     }
 };
