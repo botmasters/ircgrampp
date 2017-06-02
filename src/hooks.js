@@ -109,7 +109,8 @@ export const syncHookedMethod = function (name, ...params) {
         target.value = function (...fargs) {
             let paramsObject = params ? resolveParams(params, fargs) : fargs[0];
             let pargs = hook.beforeSync(paramsObject)
-            let result = of.apply(this, params ? pargs : [pargs]);
+            let result = of.apply(
+                this, params ? plainParams(params, pargs) : [pargs]);
             return hook.afterSync(result);
         };
     }
