@@ -4,6 +4,7 @@ import {EventEmitter} from "events";
 import {assignIn, noop} from "lodash";
 import {Client as IRCClient} from "irc";
 import config from "./config";
+import {asyncHookedMethod, syncHookedMethod} from './hooks';
 
 var Promise = require("bluebird");
 
@@ -34,6 +35,11 @@ export class IRCChannel extends EventEmitter {
      */
     constructor(channel, connection) {
         super();
+        this._constructor(channel, connection);
+    }
+
+    @syncHookedMethod('ircchannel:create', 'channel', 'connection')
+    _constructor(channel, connection) {
         debug.irc(
             `Creating IRCChannel for ${channel} for ${connection.ident}`);
         this._channel = channel;
@@ -51,8 +57,10 @@ export class IRCChannel extends EventEmitter {
 
         this.bind();
 
+        return this;
     }
 
+    @asyncHookedMethod('ircchannel:handle.message', 'nick', 'message')
     _handleMessage(nick, message) {
         if (!message) {
             return;
@@ -61,6 +69,7 @@ export class IRCChannel extends EventEmitter {
         this.emit("message", nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:handle.action', 'nick', 'message')
     _handleAction(nick, message) {
         if (!message) {
             return;
@@ -69,18 +78,23 @@ export class IRCChannel extends EventEmitter {
         this.emit("action", nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:handle.join')
     _handleJoin(nick) {
         this.emit("join", nick);
     }
 
+    @asyncHookedMethod('ircchannel:handle.left')
     _handleLeft(nick) {
         this.emit("left", nick);
     }
 
+    @asyncHookedMethod('ircchannel:handle.topic',
+        'channel', 'topic', 'nick', 'message')
     _handleTopic(channel, topic, nick, message) {
         this.emit("topic", channel, topic, nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:nick.change', 'old', 'new')
     _handleChangeNick(oldNick, newNick) {
         this._nicks = this._nicks.filter(n => n !== oldNick);
         this._nicks.push(newNick);
@@ -131,6 +145,7 @@ export class IRCChannel extends EventEmitter {
             this._handlers.changeNick);       
     }
 
+    @asyncHookedMethod('ircchannel:message.send')
     sendMessage(msg) {
         return this._connection.sendMessage(this._channel, msg);
     }
@@ -144,10 +159,12 @@ export class IRCChannel extends EventEmitter {
         return this._nicks.indexOf(nickName) !== -1;
     }
 
+    @syncHookedMethod('ircchannel:destroy')
     destroy() {
         debug.irc(`Destroy channel ${this.name}`);
         this.unbind();
         this._connection.removeChannel(this.name);
+        return this;
     }
 
     /**
@@ -178,6 +195,11 @@ export default class IRCConnection extends EventEmitter {
      */
     constructor(options) {
         super();
+        this._constructor(options);
+    }
+
+    @syncHookedMethod('ircconnection:create')
+    _constructor(options) {
         this._options = assignIn({}, defaultConfig, options);
         this._client = null;
         this._channels = [];
@@ -205,6 +227,7 @@ export default class IRCConnection extends EventEmitter {
 
         instances.push(this);
 
+        return this;
     }
 
     /**
@@ -281,6 +304,7 @@ export default class IRCConnection extends EventEmitter {
         }
     }
 
+    @asyncHookedMethod('ircconnection:wait.for.register')
     waitForRegistered() {
         if (this._registered) {
             return Promise.resolve();
@@ -306,6 +330,7 @@ export default class IRCConnection extends EventEmitter {
      * @param {string} name
      * @return {Promise<IRCChannel>}
      */
+    @syncHookedMethod('ircconnection:add.channel')
     addChannel(channelName) {
         debug.irc(`Add channel to IRCConnection ${channelName}`);
 
@@ -325,6 +350,7 @@ export default class IRCConnection extends EventEmitter {
         return channel;
     }
 
+    @asyncHookedMethod('ircconnection:remove.channel')
     removeChannel(channelName) {
         let channel = this._channels.find(
             c => c.name === channelName);
@@ -421,7 +447,7 @@ export default class IRCConnection extends EventEmitter {
         noop(this.client);
         this.waitForRegistered()
             .then(() => {
-                this.client.say(channel, msg);
+                return this.client.say(channel, msg);
             });
     }
 
