@@ -30,7 +30,7 @@ export class Hook {
         return this;
     }
 
-    resolveSync(type, data, bind) {
+    resolveAsync(type, data, context = {}) {
         let actions = this._actions[type];
 
         if (!actions.length) {
@@ -39,11 +39,11 @@ export class Hook {
 
         debug(`[sync] ${this._name}:${type}`);
         return Promise.reduce(actions, (ndata, action) => {
-            return action.apply(bind, [data]);
+            return action(context, ndata);
         }, data);
     }
 
-    resolveSync(type, data, bind) {
+    resolveSync(type, data, context = {}) {
         let actions = this._actions[type];
 
         if (!actions.length) {
@@ -54,7 +54,7 @@ export class Hook {
 
         debug(`[async] ${this._name}:${type}`);
         actions.forEach((action) => {
-            let result = action.apply(bind, [ndata]);
+            let result = action(context, ndata);
             if (result instanceof Promise) {
                 throw new Error(`${this._name}:${type} is a sync hook`);
             }
@@ -67,20 +67,20 @@ export class Hook {
         return ndata;
     }
 
-    before(data, bind) {
-        return Promise.resolve(data, bind);
+    before(data, context = {}) {
+        return this.resolveAsync('before', data, context);
     }
 
-    after(data, bind) {
-        return Promise.resolve(data, bind);
+    after(data, context = {}) {
+        return this.resolveAsync('after', data, context);
     }
 
-    beforeSync(data, bind) {
-        return this.resolveSync('before', data, bind);
+    beforeSync(data, context = {}) {
+        return this.resolveSync('before', data, context);
     }
 
-    afterSync(data, bind) {
-        return this.resolveSync('after', data, bind);
+    afterSync(data, context = {}) {
+        return this.resolveSync('after', data, context);
     }
 
     get name() {
@@ -110,6 +110,7 @@ export const subscribeTo = function (name, type, action) {
         throw new Error(`Hook ${name} does not exists`);
     }
 
+    debug(`Subscribe callback to ${type}:${name}`);
     return hooks[name].subscribe(type, action);
 }
 
