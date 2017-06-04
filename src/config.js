@@ -146,10 +146,18 @@ export const saveConfig = function() {
     return fs.writeFileSync(confpath, data);
 }
 
-export const saveBridgeConfig = function(bdata) {
+export const saveSubConfigItem = function (subpath, bdata) {
     let data = new Buffer(`${renderConfigFile(bdata, true)}\n`, 'utf8');
-    let file = path.join(bridgespath, `${bdata.name}.yml`);
+    let file = path.join(subpath, `${bdata.name}.yml`);
     return fs.writeFileSync(file, data);
+}
+
+export const saveBridgeConfig = function(bdata) {
+    return saveSubConfigItem(bridgespath, bdata);
+}
+
+export const savePluginConfig = function(bdata) {
+    return saveSubConfigItem(pluginspath, bdata);
 }
 
 export const deleteBridgeConfig = function(name) {
@@ -161,11 +169,16 @@ export const bridges = etc()
     .use(yml)
     .folder(bridgespath);
 
+export const plugins = etc()
+    .use(yml)
+    .folder(pluginspath);
+
 export const config = etc()
     .use(yml)
     .file(confpath)
     .add({
-        bridges: values(bridges.toJSON())
+        bridges: values(bridges.toJSON()),
+        plugins: values(plugins.toJSON()),
     })
     .add({
         channelsdb: path.join(dataDir, "channels.dat"),
@@ -175,30 +188,39 @@ export const config = etc()
 
 export default config;
 
-export const getBridgeConfig = function (name) {
-    let bridgeList = config.get("bridges") || [];
-    let bridge = bridgeList.find(x => x.name === name);
+export const getSubConfig = function(
+                                subPart, name, defaults = {}, strict = false) {
+    let items = config.get(subPart) || [];
+    let item = items.find(x => x.name === name);
 
-    debug(`Preparing config for bridge ${name}`);
+    debug(`Preparing config for ${subPart} ${name}`);
 
-    if (!bridge) {
-        throw new Error("Bridge does not exists");
+    if (!item && strict) {
+        throw new Error(`Item ${subPart} ${name} does not exists`);
+    } else if (!item) {
+        item = {};
     }
 
-    bridge = assignIn({}, {
+    item = assignIn({}, defaults, item);
+
+    for (let i in item) {
+        if (typeof item[i] === "undefined") {
+            delete item[i];
+        }
+    }
+
+    return item;
+};
+
+export const getBridgeConfig = function (name) {
+    let bridge = getSubConfig('bridges', name, {
         enable: true,
         prefix: config.get("prefix"),
         suffix: config.get("suffix"), 
         oneConnectionByUser: config.get("oneConnectionByUser"),
         showJoinLeft: config.get("showJoinLeft"),
         ircScapeCharacter: config.get("ircScapeCharacter"),
-    }, bridge);
-
-    for (let i in bridge) {
-        if (typeof bridge[i] === "undefined") {
-            delete bridge[i];
-        }
-    }
+    }, true);
 
     let ircConfig = config.get("irc");
     let telegramConfig = config.get("telegram");
@@ -207,5 +229,17 @@ export const getBridgeConfig = function (name) {
     bridge.telegram = assignIn({}, telegramConfig, bridge.telegram || {});
 
     return bridge;
-
 }; 
+
+export const getPluginConfig = function (name) {
+    return getSubConfig('plugins', name, {
+        name: name,
+        enable: false,
+    });
+};
+
+export const getConfInterface = function (obj, defaults = {}) {
+   return etc()
+        .add(obj)
+        .add(defaults);
+};

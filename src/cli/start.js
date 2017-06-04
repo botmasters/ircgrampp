@@ -1,5 +1,6 @@
 
 import Session from "../session";
+import {loadPlugins} from "../plugin";
 import config from "../config"; 
 import debugLib from "debug";
 
@@ -22,6 +23,8 @@ export default function (args) {
             debug("WARNING: setuid or setgid does not exists, running as 0");
         }
     }
+
+    loadPlugins();
 
     let session = new Session({
         only: args.only || null
