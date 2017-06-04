@@ -3,8 +3,12 @@ import program from "commander";
 import packageInfo from "../../package.json";
 import startProgram from "./start";
 import configProgram from "./config";
+import debugLib from "debug";
+
+const debug = debugLib('cli')
 
 process.on("uncaughtException", (err) => {
+    debug("Unknow error", err);
     process.stderr.write(`${err}\n`);
     process.exit(12);
 });
@@ -35,6 +39,7 @@ program
     });
 
 const mainCLI = function (args) {
+    debug('Run');
     program.parse(args);
 
     if (program.debug) {
