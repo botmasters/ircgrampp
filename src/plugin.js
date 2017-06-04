@@ -70,6 +70,10 @@ export class PluginInjector {
         return this._debug;
     }
 
+    get version() {
+        return packageInfo.version;
+    }
+
 }
 
 export default class PluginInterface {
@@ -94,6 +98,11 @@ export default class PluginInterface {
         let PluginClass = this.getClass();
 
         this._plugin = new PluginClass(injector);
+
+        if (!this._plugin.checkVersion()) {
+            throw new Error(
+                `Plugin ${this._name} is incompible with this version`);
+        }
 
         this._config.add(this._plugin.getDefaultOptions());
 
