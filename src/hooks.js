@@ -1,37 +1,86 @@
 
 import debugLib from "debug";
 
+const debug = debugLib('hooks');
+
 var Promise = require("bluebird");
 
-let hooks = [];
+let hooks = {};
 
 export class Hook {
 
     constructor(name) {
         Hook.validateHookName(name);
         this._name = name;
-        this._debug = debugLib(`hooks ${name}`);
-        hooks.push(this);
+        this._actions = {
+            before: [],
+            after: [],
+        };
+        hooks[name] = this;
+        debug(`New hook defined: ${this._name}`);
     }
 
-    before(data) {
-        this._debug(`hit before`);
-        return Promise.resolve(data);
+    subscribe(type, action) {
+        if (typeof action !== 'function') {
+            throw new Error('action must be a function');
+        }
+
+        this._actions[type].push(action);
+
+        return this;
     }
 
-    beforeSync(data) {
-        this._debug(`hit before`);
-        return data;
+    resolveSync(type, data, bind) {
+        let actions = this._actions[type];
+
+        if (!actions.length) {
+            return Promise.resolve(data);
+        }
+
+        debug(`[sync] ${this._name}:${type}`);
+        return Promise.reduce(actions, (ndata, action) => {
+            return action.apply(bind, [data]);
+        }, data);
     }
 
-    after(data) {
-        this._debug(`hit after`);
-        return Promise.resolve(data);
+    resolveSync(type, data, bind) {
+        let actions = this._actions[type];
+
+        if (!actions.length) {
+            return data;
+        }
+
+        let ndata = data;
+
+        debug(`[async] ${this._name}:${type}`);
+        actions.forEach((action) => {
+            let result = action.apply(bind, [ndata]);
+            if (result instanceof Promise) {
+                throw new Error(`${this._name}:${type} is a sync hook`);
+            }
+
+            if (typeof result !== 'undefined') {
+                ndata = result;
+            }
+        });
+
+        return ndata;
     }
 
-    afterSync(data) {
-        this._debug(`hit after`);
-        return data;
+    before(data, bind) {
+        return Promise.resolve(data, bind);
+    }
+
+    after(data, bind) {
+        return Promise.resolve(data, bind);
+    }
+
+    beforeSync(data, bind) {
+        return this.resolveSync('before', data, bind);
+    }
+
+    afterSync(data, bind) {
+        return this.resolveSync('after', data, bind);
     }
 
     get name() {
@@ -39,10 +88,9 @@ export class Hook {
     }
 
     static validateHookName(name) {
-        let actual = hooks.find(x => x.name === name);
 
-        if (actual) {
-            throw new Error("Hook already exists");
+        if (hooks.hasOwnProperty(name)) {
+            throw new Error(`Hook ${name} already exists`);
         }
 
         if (!name.match(/^[a-z]+:[a-z]+(\.[a-z]+)*$/i)) {
@@ -55,6 +103,14 @@ export class Hook {
 
 export const declareHook = function (name) {
     return new Hook(name);
+}
+
+export const subscribeTo = function (name, type, action) {
+    if (!hooks.hasOwnProperty(name)) {
+        throw new Error(`Hook ${name} does not exists`);
+    }
+
+    return hooks[name].subscribe(type, action);
 }
 
 export const resolveParams = function (names, params) {
@@ -108,10 +164,10 @@ export const syncHookedMethod = function (name, ...params) {
 
         target.value = function (...fargs) {
             let paramsObject = params ? resolveParams(params, fargs) : fargs[0];
-            let pargs = hook.beforeSync(paramsObject)
+            let pargs = hook.beforeSync(paramsObject, this)
             let result = of.apply(
                 this, params ? plainParams(params, pargs) : [pargs]);
-            return hook.afterSync(result);
+            return hook.afterSync(result, this);
         };
     }
 
@@ -136,13 +192,13 @@ export const asyncHookedMethod = function (name, ...params) {
 
         target.value = function (...fargs) {
             let paramsObject = params ? resolveParams(params, fargs) : fargs[0];
-             return hook.before(paramsObject)
+             return hook.before(paramsObject, this)
                 .then((args) => {
                     let pargs = params ? plainParams(params, args) : [args];
                     return of.apply(this, pargs);
                 })
                 .then((result) => {
-                    return hook.after(result);
+                    return hook.after(result, this);
                 });
         };
     }
