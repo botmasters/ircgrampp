@@ -3,7 +3,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import Bridge from "./bridge";
 import config, {getBridgeConfig} from "./config"; 
-import {declareHook} from "./hooks";
+import {asyncHookedMethod, syncHookedMethod} from "./hooks";
 
 var Promise = require("bluebird");
 
@@ -20,20 +20,20 @@ export default class Session extends EventEmitter {
      */
     constructor(options = {}) {
         super();
+        this._constructor(options);
+    }
+
+    @syncHookedMethod('session:create')
+    _constructor(options = {}) {
         this._options = options;
         this._bridgesConfig = this._makeBridgesTree();
         this._started = false;
         this._bridges = [];
 
-        this._hooks = {
-            create: declareHook("session:create"),
-            start: declareHook("session:start"),
-            startBridge: declareHook("session:brige.start"),
-        }
-
-        this._hooks.create.after(this);
+        return this;
     }
 
+    @syncHookedMethod('session:make.bridges.tree')
     _makeBridgesTree() {
 
         if (this._options.only) {
@@ -53,15 +53,8 @@ export default class Session extends EventEmitter {
             .filter(n => n.enable);
     }
 
-    startBridge(oircChannel, otelegramChannel, obridgeConfig) {
-
-        let bconfig = this._hooks.startBridge.beforeSync({ 
-            ircChannel: oircChannel,
-            telegramChannel: otelegramChannel,
-            bridgeConfig: obridgeConfig
-        });
-
-        let {ircChannel, telegramChannel, bridgeConfig} = bconfig;
+    @syncHookedMethod('session:start.bridge', 'ircChannel', 'telegramChannel', 'config')
+    startBridge(ircChannel, telegramChannel, bridgeConfig) {
 
         let bridge = new Bridge(
             bridgeConfig.name,
@@ -70,7 +63,7 @@ export default class Session extends EventEmitter {
             bridgeConfig
         );
 
-        Promise.all([
+        return Promise.all([
             new Promise((resolve) => {
                 bridge.once("irc:registered", () => {
                     debug(
@@ -88,12 +81,11 @@ export default class Session extends EventEmitter {
         ]).then(() => {
             debug(`Bridge ${bridgeConfig.name} stablished`);
             this.emit("bridgestablished", bridgeConfig.name);
+            return bridge;
         });
-
-        return this._hooks.startBridge.afterSync(bridge);
-
     }
 
+    @asyncHookedMethod('session:start')
     start() {
 
         if (this._started) {
@@ -107,30 +99,30 @@ export default class Session extends EventEmitter {
         debug("Starting bridges");
         this._started = true;
 
-        this._hooks.start.before(this._bridgesConfig).then((config) => {
+        let config = this._bridgesConfig;
 
-            this._bridges = config.map((bridgeConfig) => {
-                let ircChannel = bridgeConfig.irc.channel;
-                let telegramChannel = bridgeConfig.telegram.channel;
+        return Promise.map(config, (bridgeConfig) => { 
+            let ircChannel = bridgeConfig.irc.channel;
+            let telegramChannel = bridgeConfig.telegram.channel;
 
-                if (!ircChannel || !telegramChannel) {
-                    throw new Error(`Bridge ${bridgeConfig.name} has a ` +
-                        `error in IRC or telegram channel definition`);
-                }
+            if (!ircChannel || !telegramChannel) {
+                throw new Error(`Bridge ${bridgeConfig.name} has a ` +
+                    `error in IRC or telegram channel definition`);
+            }
 
-                debug(`Starting ${bridgeConfig.name} ${ircChannel} <-> ` + 
-                      ` ${telegramChannel}`);
+            debug(`Starting ${bridgeConfig.name} ${ircChannel} <-> ` + 
+                ` ${telegramChannel}`);
 
-                return this.startBridge(
-                    ircChannel,
-                    telegramChannel,
-                    bridgeConfig); 
-   
+            return this.startBridge(
+                ircChannel,
+                telegramChannel,
+                bridgeConfig); 
+
+        })
+            .then((bridges) => {
+                this._bridges = bridges;
+                return bridges;
             });
-
-            this._hooks.start.after(this._bridges);
-        });
-
     }
 
 }
