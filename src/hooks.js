@@ -7,6 +7,40 @@ var Promise = require("bluebird");
 
 let hooks = {};
 
+export class HookFlow {
+    
+    constructor() {
+        this._preventDefault = false;
+        this._preventAfter = false;
+        this._stopPropagation = false;
+    }
+
+    preventDefault() {
+        this._preventDefault = true;
+    }
+
+    preventAfter() {
+        this._preventAfter = true;
+    }
+
+    stopPropagation() {
+        this._stopPropagation = true;
+    }
+
+    get isPreventDefault() {
+        return this._preventDefault;
+    }
+
+    get isPreventAfter() {
+        return this._preventAfter;
+    }
+
+    get isStopPropagation() {
+        return this._stopPropagation;
+    }
+
+}
+
 export class Hook {
 
     constructor(name) {
@@ -34,27 +68,57 @@ export class Hook {
         let actions = this._actions[type];
 
         if (!actions.length) {
-            return Promise.resolve(data);
+            return Promise.resolve({
+                flow: {},
+                data,
+            });
         }
+
+        let flow = new HookFlow();
 
         debug(`[sync] ${this._name}:${type}`);
         return Promise.reduce(actions, (ndata, action) => {
-            return action(context, ndata);
-        }, data);
+            if (flow.isStopPropagation) {
+                return ndata;
+            }
+
+            let rdata = action(context, ndata, flow);
+    
+            if (typeof rdata === 'undefined') {
+                return ndata;
+            } else {
+                return rdata;
+            }
+        }, data)
+            .then((finalData) => {
+                return {
+                    flow,
+                    data: finalData,
+                }
+            });
     }
 
     resolveSync(type, data, context = {}) {
         let actions = this._actions[type];
 
         if (!actions.length) {
-            return data;
+            return {
+                flow: {},
+                data,
+            };
         }
 
+        let flow = new HookFlow();
         let ndata = data;
 
         debug(`[async] ${this._name}:${type}`);
         actions.forEach((action) => {
-            let result = action(context, ndata);
+
+            if (flow.isStopPropagation) {
+                return;
+            }
+
+            let result = action(context, ndata, flow);
             if (result instanceof Promise) {
                 throw new Error(`${this._name}:${type} is a sync hook`);
             }
@@ -64,7 +128,10 @@ export class Hook {
             }
         });
 
-        return ndata;
+        return {
+            flow,
+            data: ndata,
+        };
     }
 
     before(data, context = {}) {
@@ -165,10 +232,22 @@ export const syncHookedMethod = function (name, ...params) {
 
         target.value = function (...fargs) {
             let paramsObject = params ? resolveParams(params, fargs) : fargs[0];
-            let pargs = hook.beforeSync(paramsObject, this)
-            let result = of.apply(
-                this, params ? plainParams(params, pargs) : [pargs]);
-            return hook.afterSync(result, this);
+            let result;
+            let bresult = hook.beforeSync(paramsObject, this)
+
+            if (bresult.flow.isPreventDefault) {
+                result = bresult.data;
+            } else {
+                result = of.apply(
+                    this, params ? plainParams(
+                        params, bresult.data) : [bresult.data]);
+            }
+
+            if (bresult.flow.isPreventAfter) {
+                return result;
+            }
+
+            return hook.afterSync(result, this).data;
         };
     }
 
@@ -193,12 +272,24 @@ export const asyncHookedMethod = function (name, ...params) {
 
         target.value = function (...fargs) {
             let paramsObject = params ? resolveParams(params, fargs) : fargs[0];
+            let flow;
+
              return hook.before(paramsObject, this)
-                .then((args) => {
-                    let pargs = params ? plainParams(params, args) : [args];
+                .then((result) => {
+                    flow = result.flow;
+
+                    let pargs = params ? plainParams(
+                        params, result.data) : [result.data];
+
+                    if (flow.isPreventDefault) {
+                        return pargs;
+                    }
                     return of.apply(this, pargs);
                 })
                 .then((result) => {
+                    if (flow.isPreventAfter) {
+                        return result;
+                    }
                     return hook.after(result, this);
                 });
         };
