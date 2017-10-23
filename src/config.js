@@ -67,63 +67,57 @@ const bridgespath = path.join(configDir, "bridges");
 const pluginspath  = path.join(configDir, "plugins");
 
 export const createDir = function (dir) {
+    debug(`creating directory ${dir}`);
     fs.mkdirSync(dir, 0o700);
 }
 
-export const createConfigDir = function() {
-    debug(`Creating config directory in ${configDir}`);
-    createDir(configDir);
-    createDir(bridgespath);
-    createDir(pluginspath);
-}
-
-export const createDataDir = function() {
-    debug(`Creating data directory in ${dataDir}`);
-    return createDir(dataDir);
-}
-
-export const checkConfigDir = function (created = false) {
+export const checkDir = function(dir, create = false) {
     let stats;
-    debug(`Check config directory ${configDir}`);
+    debug(`Checking if dir exists ${dir}`);
 
     try {
-        stats = fs.lstatSync(configDir);
+        stats = fs.lstatSync(dir);
     } catch (e) {
         debug(`Does not exist`);
-        if (created) {
-            return createConfigDir();
+
+        if (create) {
+            return createDir(dir);
         }
 
         return false;
     }
 
     if (!stats.isDirectory(configDir)) {
+        debug(`Exists but isn't a directory`);
         throw new Error(`${configDir} is not a directory`);
     }
 
     return true;
+
 }
 
-export const checkDataDir = function (created = false) {
-    let stats;
+export const checkConfigDir = function (create = false) {
+    let res = 0;
+    debug(`Check config directory ${configDir}`);
+
+    res |= !checkDir(configDir, create);
+    res |= !checkDir(bridgespath, create);
+    res |= !checkDir(pluginspath, create);
+
+    return !res;
+}
+
+export const createConfigDir = function()  {
+    return checkConfigDir(true);
+}
+
+export const checkDataDir = function (create = false) {
+    let res = 0;
     debug(`Check data directory ${dataDir}`);
 
-    try {
-        stats = fs.lstatSync(dataDir);
-    } catch (e) {
-        debug(`Does not exist`);
-        if (created) {
-            return createDataDir();
-        }
+    res |= !checkDir(configDir, create);
 
-        return false;
-    }
-
-    if (!stats.isDirectory(dataDir)) {
-        throw new Error(`${dataDir} is not a directory`);
-    }
-
-    return true;
+    return !res;
 }
 
 export const renderConfigFile = function (configJson = null, final = false) {
@@ -181,7 +175,7 @@ export const config = etc()
         plugins: values(plugins.toJSON()),
     })
     .add({
-        channelsdb: path.join(dataDir, "channels.dat"),
+        db: path.join(dataDir, "ircgrampp.dat"),
         user: 'nobody',
         group: 'nobody',
     });

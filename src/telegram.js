@@ -3,7 +3,7 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn, noop} from "lodash";
 import TelegramBot from 'node-telegram-bot-api';
-import {ChannelsInfo} from "./storage";
+import ChannelsInfo from "./channelsinfo";
 import {asyncHookedMethod, syncHookedMethod} from './hooks';
 
 var Promise = require("bluebird");
