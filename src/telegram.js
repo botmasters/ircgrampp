@@ -162,7 +162,7 @@ export class TelegramChannel extends EventEmitter {
         this.bind();
 
         debug.channel("Information updateted");
-        this.emit("updateinformation");
+        this.emit("updateinformation", data);
     }
 
     /**
@@ -298,12 +298,9 @@ export default class TelegramConnection extends EventEmitter {
                 return;
         }
 
-        let data = {
-            id,
-            title,
-            type,
-            updated: now
-        };
+        let data = assignIn({}, chatData, {
+            updated: now,
+        });
 
         channelsInfo.save(data);
         debug.connection("channel info update", data.id, data.title);
