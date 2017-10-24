@@ -199,6 +199,8 @@ export default class Bridge extends EventEmitter {
 
         debug(`Create bridge ${name}`);
 
+        this._name = name;
+
         this._ircConnector = IRCConnection.getByServerOptions(
             this._options.irc);
 
@@ -493,6 +495,13 @@ export default class Bridge extends EventEmitter {
             this._handlers.telegramLeft); 
         
 
+    }
+
+    /**
+     * @property {String} name
+     */
+    get name() {
+        return this._name;
     }
 
 }
