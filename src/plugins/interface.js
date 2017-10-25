@@ -1,14 +1,12 @@
 
 import {uniq} from 'lodash';
-// import PluginBase from 'ircgrampp-plugin';
-import packageInfo from '../package.json';
-import config, {getPluginConfig, getConfInterface} from './config';
-import {subscribeTo} from './hooks';
+import packageInfo from '../../package.json';
+import {getPluginConfig, getConfInterface} from '../config';
+import {subscribeTo} from '../hooks';
+import PluginInjector from './injector';
 import debugLib from 'debug';
 
-var Promise = require('bluebird');
-
-const debug = debugLib('plugins');
+const debug = debugLib('plugins.interface');
 
 const methodRegExp = '(before|after)([A-Z][a-z]+)((?:[A-Z][a-z]*)*)?$';
 
@@ -49,31 +47,6 @@ const translateHookMethod = function (mName) {
         type: type,
         name: (`${nameSpace}:${rest}`).toLowerCase()
     };
-}
-
-export class PluginInjector {
-    
-    constructor(pluginInterface) {
-        this._interface = pluginInterface;
-        this._debug = debugLib(`plugin-${this._interface.name}`);
-    }
-
-    getConfig() {
-        return this._interface.getConfig();
-    }
-
-    get Promise() {
-        return Promise;
-    }
-
-    get debug() {
-        return this._debug;
-    }
-
-    get version() {
-        return packageInfo.version;
-    }
-
 }
 
 export default class PluginInterface {
@@ -158,17 +131,4 @@ export default class PluginInterface {
     static load(name) {
         return new PluginInterface(name);
     }
-}
-
-export const loadPlugins = function(all = false) {
-    debug('Load plugins');
-    let plugins = config.get('plugins');
-
-    if (!all) {
-        plugins = plugins.filter(x => x.enable);
-    }
-
-    plugins.forEach((plugOps) => {
-        PluginInterface.load(plugOps.name);
-    });
 }

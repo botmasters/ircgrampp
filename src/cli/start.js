@@ -1,6 +1,6 @@
 
 import Session from "../session";
-import {loadPlugins} from "../plugin";
+import {loadPlugins} from "../plugins";
 import config from "../config"; 
 import debugLib from "debug";
 
