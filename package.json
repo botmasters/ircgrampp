@@ -10,7 +10,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/gulp lint",
-    "build": "./node_modules/.bin/gulp build && chmod +x ./bin/*",
+    "build": "rm -rf ./{lib,bin}/*; ./node_modules/.bin/gulp build && chmod +x ./bin/*",
     "prepublishOnly": "npm run build"
   },
   "bin": {
@@ -45,8 +45,9 @@
   },
   "dependencies": {
     "bluebird": "^3.5.0",
-    "commander": "^2.9.0",
+    "commander": "^2.11.0",
     "debug": "^2.6.3",
+    "download-npm-package": "^3.1.11",
     "etc": "^1.1.0",
     "etc-yaml": "^0.0.5",
     "inquirer": "^3.0.6",

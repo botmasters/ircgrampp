@@ -176,6 +176,7 @@ export const config = etc()
     })
     .add({
         db: path.join(dataDir, "ircgrampp.dat"),
+        pluginspath: path.join(dataDir, "lib"),
         user: 'nobody',
         group: 'nobody',
     });
