@@ -5,6 +5,8 @@ import debugLib from 'debug';
 
 const debug = debugLib('plugins');
 
+export * from './manager';
+
 export const loadPlugins = function(all = false) {
     debug('Load plugins');
     let plugins = config.get('plugins');

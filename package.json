@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "bluebird": "^3.5.0",
+    "cli-table": "^0.3.1",
     "commander": "^2.11.0",
     "debug": "^2.6.3",
     "download-npm-package": "^3.1.11",
@@ -55,6 +56,8 @@
     "lodash": "^4.17.4",
     "node-storage": "^0.0.7",
     "node-telegram-bot-api": "^0.27.0",
-    "prettyjson": "https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28"
+    "prettyjson": "https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28",
+    "request": "^2.83.0",
+    "request-promise": "^4.2.2"
   }
 }

@@ -52,6 +52,10 @@ export default class Storage {
         this._data = data;
     }
 
+    get length() {
+        return this._data.length;
+    }
+
     sync() {
         this._storage.put(this._db, this._data);
     }
@@ -99,6 +103,16 @@ export default class Storage {
     find(func) {
         debug.info(`Find`);
         return this._data.find(func);  
+    }
+
+    filter(func) {
+        debug.info('Filter');
+        return this._data.filter(func);
+    }
+
+    reduce(func, initial = null) {
+        debug.info('reduce');
+        return this._data.reduce(func, initial);
     }
 
     static createDataDir(dirname) {
