@@ -1,7 +1,8 @@
 
+import path from 'path';
 import {uniq} from 'lodash';
 import packageInfo from '../../package.json';
-import {getPluginConfig, getConfInterface} from '../config';
+import config, {getPluginConfig, getConfInterface} from '../config';
 import {subscribeTo} from '../hooks';
 import PluginInjector from './injector';
 import debugLib from 'debug';
@@ -9,6 +10,8 @@ import debugLib from 'debug';
 const debug = debugLib('plugins.interface');
 
 const methodRegExp = '(before|after)([A-Z][a-z]+)((?:[A-Z][a-z]*)*)?$';
+
+const LIB_PATH = config.get('pluginspath');
 
 const getMethods = function(oinstance) {
     var props = [];
@@ -88,7 +91,10 @@ export default class PluginInterface {
             .toLowerCase()
             .replace(/[^a-z0-9]/ig, '');
 
-        let packName = `${project}-plugin-${this._name}`;
+        let packName = path.resolve(
+            LIB_PATH,
+            `${project}-plugin-${this._name}`
+        );
 
         try {
             pluginClass = require(packName).default;

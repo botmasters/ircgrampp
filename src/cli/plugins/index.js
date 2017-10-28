@@ -3,6 +3,7 @@ import packageInfo from "../../../package.json";
 import syncProgram from "./sync";
 import listProgram from "./list";
 import searchProgram from "./search";
+import installProgram from './install';
 import debugLib from "debug";
 
 const debug = debugLib('cli.plugins')
@@ -40,7 +41,7 @@ program
     .description("Install new plugin")
     .usage("[options] {name}[@version]")
     .option("--enable", "Enable plugin")
-    .action(searchProgram);
+    .action(installProgram);
 
 program
     .command("enable")

@@ -1,7 +1,9 @@
 
 import request from "request-promise";
 import packageInfo from '../../package.json';
+import {checkDir, savePluginConfig} from '../config';
 import PackageDb from './db';
+import PluginInterface from './interface';
 import debugLib from "debug";
 
 let Promise = require('bluebird');
@@ -165,4 +167,46 @@ export const syncPlugins = function() {
 export const listPlugins = function() {
     let db = PackageDb.getInstance();
     return db._data;
+}
+
+export const installPlugin = function(query, enable = false) {
+    let name, ver, finalQuery;
+    debug('Go to install package', query);
+
+    query = query
+        .replace(PREFIX_SEARCH_REGX, '');
+
+    let parts = query.match(/^([^@]+)(@[.]+)?$/g);
+
+    debug("parts", parts);
+
+    if (!parts) {
+        return Promise.reject(new Error('Invalid query'));
+    }
+
+    name = parts[0];
+
+    if (parts.length > 1) {
+        ver = parts[1];
+    }
+
+    finalQuery = `${packageInfo.name}-plugin-${name}@${ver || "latest"}`;
+
+    debug("Final query is", finalQuery);
+
+    return installPackage(finalQuery)
+        .then(() => {
+            debug('Installed, getting defult config');
+            let plugin = new PluginInterface(name);
+            let options = plugin.getDefaultOptions();
+
+            debug('Saving config');
+            return savePluginConfig(Object.assign({}, options, {
+                name,
+                enable,
+            }));
+        })
+        .then(() => {
+            debug('Plugin installed and configured'); 
+        });
 }
