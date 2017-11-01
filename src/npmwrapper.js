@@ -1,12 +1,13 @@
 
 
 import npm from 'npm';
-import config from '../config';
+import config, {checkDir} from './config';
 import debugLib from 'debug';
 
 let Promise = require('bluebird');
 
 const debug = debugLib('npmwrapper');
+const npmDebug = debugLib('npmwrapper:npm');
 
 const LIB_PATH = config.get('pluginspath');
 
@@ -28,6 +29,10 @@ const load = function () {
                 return reject(err);
             }
 
+            npm.on('log', (...args) => {
+                npmDebug(...args);
+            });
+
             loaded = true;
             return resolve();
         });
@@ -35,18 +40,21 @@ const load = function () {
 }
 
 export const installPackage = function(query) {
-    load()
+    return load()
         .then(() => {
             debug('Check or create lib directory');
             return checkDir(LIB_PATH, true);
         })
         .then(() => {
             return new Promise((resolve, reject) => {
-                npm.install([query], (err) => {
+                debug('Installing package', query);
+                npm.install(query, (err) => {
                     if (err) {
+                        debug('Error installing package', err);
                         return reject(err);
                     }
 
+                    debug('Package installed');
                     return resolve();
                 });
             });

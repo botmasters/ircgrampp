@@ -71,7 +71,7 @@ export default class PluginInterface {
 
         let injector = new PluginInjector(this);
 
-        let PluginClass = this.getClass();
+        let PluginClass = PluginInterface.getClass(this._name);
 
         this._plugin = new PluginClass(injector);
 
@@ -80,36 +80,7 @@ export default class PluginInterface {
                 `Plugin ${this._name} is incompible with this version`);
         }
 
-        this._config.add(this._plugin.getDefaultOptions());
-
         this.subscribeHooks();
-    }
-
-    getClass() {
-        let pluginClass;
-        let project = packageInfo.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]/ig, '');
-
-        let packName = path.resolve(
-            LIB_PATH,
-            `${project}-plugin-${this._name}`
-        );
-
-        try {
-            pluginClass = require(packName).default;
-        } catch (e) {
-            throw new Error(`Plugin ${this._name} is not installed`);
-        }
-
-        /* if (!(pluginClass instanceof PluginBase)) {
-            debug('c', PluginBase);
-            debug(pluginClass);
-            throw new Error(`Plugin ${this._name} isn't a valid Plugin`);
-        } */
-
-        return pluginClass;
-
     }
 
     subscribeHooks() {
@@ -136,5 +107,32 @@ export default class PluginInterface {
 
     static load(name) {
         return new PluginInterface(name);
+    }
+
+    static getClass(name) {
+        let pluginClass;
+        let project = packageInfo.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]/ig, '');
+
+        let packName = path.resolve(
+            LIB_PATH,
+            'node_modules',
+            `${project}-plugin-${name}`
+        );
+
+        try {
+            pluginClass = require(packName).default;
+        } catch (e) {
+            throw new Error(`Plugin ${this._name} is not installed`);
+        }
+
+        /* if (!(pluginClass instanceof PluginBase)) {
+            debug('c', PluginBase);
+            debug(pluginClass);
+            throw new Error(`Plugin ${this._name} isn't a valid Plugin`);
+        } */
+
+        return pluginClass;
     }
 }

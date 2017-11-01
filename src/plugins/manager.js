@@ -1,7 +1,8 @@
 
 import request from "request-promise";
 import packageInfo from '../../package.json';
-import {checkDir, savePluginConfig} from '../config';
+import {savePluginConfig, checkConfigDir} from '../config';
+import {installPackage} from '../npmwrapper';
 import PackageDb from './db';
 import PluginInterface from './interface';
 import debugLib from "debug";
@@ -197,10 +198,13 @@ export const installPlugin = function(query, enable = false) {
     return installPackage(finalQuery)
         .then(() => {
             debug('Installed, getting defult config');
-            let plugin = new PluginInterface(name);
-            let options = plugin.getDefaultOptions();
+            let pluginClass = PluginInterface.getClass(name);
+            let options = pluginClass.getDefaultOptions();
 
-            debug('Saving config');
+            debug('Check config dir');
+            checkConfigDir(true);
+
+            debug('Saving config', options);
             return savePluginConfig(Object.assign({}, options, {
                 name,
                 enable,
