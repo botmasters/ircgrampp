@@ -3,8 +3,12 @@ import program from "commander";
 import packageInfo from "../../package.json";
 import startProgram from "./start";
 import configProgram from "./config";
+import debugLib from "debug";
+
+const debug = debugLib('cli')
 
 process.on("uncaughtException", (err) => {
+    debug("Unknow error", err);
     process.stderr.write(`${err}\n`);
     process.exit(12);
 });
@@ -27,14 +31,21 @@ program
     .action(configProgram);
 
 program
-    .command('*')
-    .action(() => {
+    .command("plugins", "Manage plugins");
+
+program
+    .on("command:*", (args) => {
+        if (args.length && args[0] === 'plugins') {
+            return;
+        }
+
         process.stderr.write(`The command ${program.args[0]}, is not a valid` +
                              ` command, see ${program._name} --help\n`);
         process.exit(1);
     });
 
 const mainCLI = function (args) {
+    debug('Run');
     program.parse(args);
 
     if (program.debug) {
@@ -44,7 +55,6 @@ const mainCLI = function (args) {
     if (!program.args.length) {
         program.help();
     }
-
 };
 
 export default mainCLI;

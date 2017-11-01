@@ -10,7 +10,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/gulp lint",
-    "build": "./node_modules/.bin/gulp build && chmod +x ./bin/*",
+    "build": "rm -rf ./{lib,bin}/*; ./node_modules/.bin/gulp build && chmod +x ./bin/*",
     "prepublishOnly": "npm run build"
   },
   "bin": {
@@ -34,6 +34,8 @@
   "devDependencies": {
     "babel": "^6.23.0",
     "babel-core": "^6.24.0",
+    "babel-eslint": "^7.2.1",
+    "babel-plugin-transform-decorators-legacy": "^1.3.4",
     "babel-preset-es2015": "^6.24.0",
     "eslint-config-defaults": "^9.0.0",
     "gulp": "^3.9.1",
@@ -43,7 +45,8 @@
   },
   "dependencies": {
     "bluebird": "^3.5.0",
-    "commander": "^2.9.0",
+    "cli-table": "^0.3.1",
+    "commander": "^2.11.0",
     "debug": "^2.6.3",
     "etc": "^1.1.0",
     "etc-yaml": "^0.0.5",
@@ -52,6 +55,9 @@
     "lodash": "^4.17.4",
     "node-storage": "^0.0.7",
     "node-telegram-bot-api": "^0.27.0",
-    "prettyjson": "https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28"
+    "npm": "^5.5.1",
+    "prettyjson": "https://github.com/exos/prettyjson.git#d8b0700297178189400e52c45bb3e447f611df28",
+    "request": "^2.83.0",
+    "request-promise": "^4.2.2"
   }
 }

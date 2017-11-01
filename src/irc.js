@@ -4,6 +4,7 @@ import {EventEmitter} from "events";
 import {assignIn, noop} from "lodash";
 import {Client as IRCClient} from "irc";
 import config from "./config";
+import {asyncHookedMethod, syncHookedMethod} from './hooks';
 
 var Promise = require("bluebird");
 
@@ -34,6 +35,11 @@ export class IRCChannel extends EventEmitter {
      */
     constructor(channel, connection) {
         super();
+        this._constructor(channel, connection);
+    }
+
+    @syncHookedMethod('ircchannel:create', 'channel', 'connection')
+    _constructor(channel, connection) {
         debug.irc(
             `Creating IRCChannel for ${channel} for ${connection.ident}`);
         this._channel = channel;
@@ -51,8 +57,10 @@ export class IRCChannel extends EventEmitter {
 
         this.bind();
 
+        return this;
     }
 
+    @asyncHookedMethod('ircchannel:handle.message', 'nick', 'message')
     _handleMessage(nick, message) {
         if (!message) {
             return;
@@ -61,6 +69,7 @@ export class IRCChannel extends EventEmitter {
         this.emit("message", nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:handle.action', 'nick', 'message')
     _handleAction(nick, message) {
         if (!message) {
             return;
@@ -69,18 +78,23 @@ export class IRCChannel extends EventEmitter {
         this.emit("action", nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:handle.join')
     _handleJoin(nick) {
         this.emit("join", nick);
     }
 
+    @asyncHookedMethod('ircchannel:handle.left')
     _handleLeft(nick) {
         this.emit("left", nick);
     }
 
+    @asyncHookedMethod('ircchannel:handle.topic',
+        'channel', 'topic', 'nick', 'message')
     _handleTopic(channel, topic, nick, message) {
         this.emit("topic", channel, topic, nick, message);
     }
 
+    @asyncHookedMethod('ircchannel:nick.change', 'old', 'new')
     _handleChangeNick(oldNick, newNick) {
         this._nicks = this._nicks.filter(n => n !== oldNick);
         this._nicks.push(newNick);
@@ -131,6 +145,7 @@ export class IRCChannel extends EventEmitter {
             this._handlers.changeNick);       
     }
 
+    @asyncHookedMethod('ircchannel:message.send')
     sendMessage(msg) {
         return this._connection.sendMessage(this._channel, msg);
     }
@@ -144,10 +159,12 @@ export class IRCChannel extends EventEmitter {
         return this._nicks.indexOf(nickName) !== -1;
     }
 
+    @syncHookedMethod('ircchannel:destroy')
     destroy() {
         debug.irc(`Destroy channel ${this.name}`);
         this.unbind();
         this._connection.removeChannel(this.name);
+        return this;
     }
 
     /**
@@ -178,6 +195,11 @@ export default class IRCConnection extends EventEmitter {
      */
     constructor(options) {
         super();
+        this._constructor(options);
+    }
+
+    @syncHookedMethod('ircconnection:create')
+    _constructor(options) {
         this._options = assignIn({}, defaultConfig, options);
         this._client = null;
         this._channels = [];
@@ -205,6 +227,18 @@ export default class IRCConnection extends EventEmitter {
 
         instances.push(this);
 
+        return this;
+    }
+
+    @asyncHookedMethod('ircconnection:handle.registered')
+    _handleRegistered(data) {
+            let nick = data.args[0];
+            debug.irc(`${nick} registered`);
+            this._registered = true;
+            this.emit("irc:registered", nick, data);
+            let oldNick = this._options.nick;
+            this._options.nick = nick;
+            this.emit("changeMasterNick", oldNick, nick);
     }
 
     /**
@@ -230,6 +264,7 @@ export default class IRCConnection extends EventEmitter {
      * @param {string} to
      * @param {string} message
      */
+    @asyncHookedMethod('ircconnection:handle.message', 'from', 'to', 'message')
     _handleIncommingMessage(from, to, message) {
         let ownChannel = this.getChannel(to);
 
@@ -246,6 +281,8 @@ export default class IRCConnection extends EventEmitter {
      */
     _handleIncommingAction(from, to, message) {
         let ownChannel = this.getChannel(to);
+
+        debug.irc(`Incomming action ${from} -> ${to} : ${message}`);
 
         if (ownChannel && !ownChannel.hasNick(from)) {
             this.emit(`${ownChannel.name}:action`, from, message);
@@ -281,13 +318,18 @@ export default class IRCConnection extends EventEmitter {
         }
     }
 
+    @asyncHookedMethod('ircconnection:wait.for.registered')
     waitForRegistered() {
         if (this._registered) {
-            return Promise.resolve();
+            return Promise.resolve(false);
         }
 
         return new Promise((resolve) => {
-            this.once("irc:registered", resolve);
+            debug.irc('Waiting for registered');
+            this.once("irc:registered", () => {
+                debug.irc('registered!');
+                resolve(true)
+            });
         });
 
     }
@@ -306,6 +348,7 @@ export default class IRCConnection extends EventEmitter {
      * @param {string} name
      * @return {Promise<IRCChannel>}
      */
+    @syncHookedMethod('ircconnection:add.channel')
     addChannel(channelName) {
         debug.irc(`Add channel to IRCConnection ${channelName}`);
 
@@ -325,6 +368,7 @@ export default class IRCConnection extends EventEmitter {
         return channel;
     }
 
+    @asyncHookedMethod('ircconnection:remove.channel')
     removeChannel(channelName) {
         let channel = this._channels.find(
             c => c.name === channelName);
@@ -369,6 +413,11 @@ export default class IRCConnection extends EventEmitter {
             return this._handleIncommingMessage(from, to, message);
         });
 
+        this._client.addListener("pm", (from, message) => {
+            debug.irc(`${from} => me (pm): ${message}`);
+            this.emit("irc:pm", from, message);
+        });
+
         this._client.addListener("action", (from, to, message) => {
             debug.irc(`${from} => ${to}: ${message}`);
             this.emit("irc:action", from, to, message);
@@ -394,15 +443,7 @@ export default class IRCConnection extends EventEmitter {
         });
 
         this._client.addListener("registered", (data) => {
-            let nick = data.args[0];
-            debug.irc(`${nick} registered`);
-
-            this._registered = true;
-
-            this.emit("irc:registered", nick, data);
-            let oldNick = this._options.nick;
-            this._options.nick = nick;
-            this.emit("changeMasterNick", oldNick, nick);
+            return this._handleRegistered(data);
         });
 
         this._client.addListener("error", (message) => {
@@ -421,7 +462,8 @@ export default class IRCConnection extends EventEmitter {
         noop(this.client);
         this.waitForRegistered()
             .then(() => {
-                this.client.say(channel, msg);
+                debug.irc('message out to ' + channel);
+                return this.client.say(channel, msg);
             });
     }
 

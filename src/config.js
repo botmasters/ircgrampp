@@ -67,63 +67,57 @@ const bridgespath = path.join(configDir, "bridges");
 const pluginspath  = path.join(configDir, "plugins");
 
 export const createDir = function (dir) {
+    debug(`creating directory ${dir}`);
     fs.mkdirSync(dir, 0o700);
 }
 
-export const createConfigDir = function() {
-    debug(`Creating config directory in ${configDir}`);
-    createDir(configDir);
-    createDir(bridgespath);
-    createDir(pluginspath);
-}
-
-export const createDataDir = function() {
-    debug(`Creating data directory in ${dataDir}`);
-    return createDir(dataDir);
-}
-
-export const checkConfigDir = function (created = false) {
+export const checkDir = function(dir, create = false) {
     let stats;
-    debug(`Check config directory ${configDir}`);
+    debug(`Checking if dir exists ${dir}`);
 
     try {
-        stats = fs.lstatSync(configDir);
+        stats = fs.lstatSync(dir);
     } catch (e) {
         debug(`Does not exist`);
-        if (created) {
-            return createConfigDir();
+
+        if (create) {
+            return createDir(dir);
         }
 
         return false;
     }
 
     if (!stats.isDirectory(configDir)) {
+        debug(`Exists but isn't a directory`);
         throw new Error(`${configDir} is not a directory`);
     }
 
     return true;
+
 }
 
-export const checkDataDir = function (created = false) {
-    let stats;
+export const checkConfigDir = function (create = false) {
+    let res = 0;
+    debug(`Check config directory ${configDir}`);
+
+    res |= !checkDir(configDir, create);
+    res |= !checkDir(bridgespath, create);
+    res |= !checkDir(pluginspath, create);
+
+    return !res;
+}
+
+export const createConfigDir = function()  {
+    return checkConfigDir(true);
+}
+
+export const checkDataDir = function (create = false) {
+    let res = 0;
     debug(`Check data directory ${dataDir}`);
 
-    try {
-        stats = fs.lstatSync(dataDir);
-    } catch (e) {
-        debug(`Does not exist`);
-        if (created) {
-            return createDataDir();
-        }
+    res |= !checkDir(configDir, create);
 
-        return false;
-    }
-
-    if (!stats.isDirectory(dataDir)) {
-        throw new Error(`${dataDir} is not a directory`);
-    }
-
-    return true;
+    return !res;
 }
 
 export const renderConfigFile = function (configJson = null, final = false) {
@@ -146,10 +140,18 @@ export const saveConfig = function() {
     return fs.writeFileSync(confpath, data);
 }
 
-export const saveBridgeConfig = function(bdata) {
+export const saveSubConfigItem = function (subpath, bdata) {
     let data = new Buffer(`${renderConfigFile(bdata, true)}\n`, 'utf8');
-    let file = path.join(bridgespath, `${bdata.name}.yml`);
+    let file = path.join(subpath, `${bdata.name}.yml`);
     return fs.writeFileSync(file, data);
+}
+
+export const saveBridgeConfig = function(bdata) {
+    return saveSubConfigItem(bridgespath, bdata);
+}
+
+export const savePluginConfig = function(bdata) {
+    return saveSubConfigItem(pluginspath, bdata);
 }
 
 export const deleteBridgeConfig = function(name) {
@@ -161,44 +163,59 @@ export const bridges = etc()
     .use(yml)
     .folder(bridgespath);
 
+export const plugins = etc()
+    .use(yml)
+    .folder(pluginspath);
+
 export const config = etc()
     .use(yml)
     .file(confpath)
     .add({
-        bridges: values(bridges.toJSON())
+        bridges: values(bridges.toJSON()),
+        plugins: values(plugins.toJSON()),
     })
     .add({
-        channelsdb: path.join(dataDir, "channels.dat"),
+        db: path.join(dataDir, "ircgrampp.dat"),
+        pluginspath: path.join(dataDir, "lib"),
         user: 'nobody',
         group: 'nobody',
     });
 
 export default config;
 
-export const getBridgeConfig = function (name) {
-    let bridgeList = config.get("bridges") || [];
-    let bridge = bridgeList.find(x => x.name === name);
+export const getSubConfig = function(
+                                subPart, name, defaults = {}, strict = false) {
+    let items = config.get(subPart) || [];
+    let item = items.find(x => x.name === name);
 
-    debug(`Preparing config for bridge ${name}`);
+    debug(`Preparing config for ${subPart} ${name}`);
 
-    if (!bridge) {
-        throw new Error("Bridge does not exists");
+    if (!item && strict) {
+        throw new Error(`Item ${subPart} ${name} does not exists`);
+    } else if (!item) {
+        item = {};
     }
 
-    bridge = assignIn({}, {
+    item = assignIn({}, defaults, item);
+
+    for (let i in item) {
+        if (typeof item[i] === "undefined") {
+            delete item[i];
+        }
+    }
+
+    return item;
+};
+
+export const getBridgeConfig = function (name) {
+    let bridge = getSubConfig('bridges', name, {
         enable: true,
         prefix: config.get("prefix"),
         suffix: config.get("suffix"), 
         oneConnectionByUser: config.get("oneConnectionByUser"),
         showJoinLeft: config.get("showJoinLeft"),
         ircScapeCharacter: config.get("ircScapeCharacter"),
-    }, bridge);
-
-    for (let i in bridge) {
-        if (typeof bridge[i] === "undefined") {
-            delete bridge[i];
-        }
-    }
+    }, true);
 
     let ircConfig = config.get("irc");
     let telegramConfig = config.get("telegram");
@@ -207,5 +224,17 @@ export const getBridgeConfig = function (name) {
     bridge.telegram = assignIn({}, telegramConfig, bridge.telegram || {});
 
     return bridge;
-
 }; 
+
+export const getPluginConfig = function (name) {
+    return getSubConfig('plugins', name, {
+        name: name,
+        enable: false,
+    });
+};
+
+export const getConfInterface = function (obj, defaults = {}) {
+   return etc()
+        .add(obj)
+        .add(defaults);
+};

@@ -3,7 +3,8 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn, noop} from "lodash";
 import TelegramBot from 'node-telegram-bot-api';
-import {ChannelsInfo} from "./storage";
+import ChannelsInfo from "./channelsinfo";
+import {asyncHookedMethod, syncHookedMethod} from './hooks';
 
 var Promise = require("bluebird");
 
@@ -35,6 +36,11 @@ export class TelegramChannel extends EventEmitter {
      */
     constructor(channel, connector) {
         super();
+        this._constructor(channel, connector);
+    }
+
+    @syncHookedMethod('telegramchannel:create', 'channel', 'connector')
+    _constructor(channel, connector) {
         debug.channel("Start channel");
         this._channel = channel;
         this._connector = connector;
@@ -67,8 +73,11 @@ export class TelegramChannel extends EventEmitter {
             this.bind();
         }
 
+        return this;
     }
 
+    @asyncHookedMethod('telegramchannel:handle.message',
+        'user', 'message', 'channelInfo')
     _handleMessage(user, message) {
         if (!message) {
             debug.channel("unknow message, ignoring");
@@ -133,6 +142,7 @@ export class TelegramChannel extends EventEmitter {
      * Set channel information
      * @param {object} data
      */
+    @asyncHookedMethod('telegramchannel:set.data', 'data', 'sync')
     setData(data, sync = true) {
 
         this.unbind();
@@ -152,7 +162,7 @@ export class TelegramChannel extends EventEmitter {
         this.bind();
 
         debug.channel("Information updateted");
-        this.emit("updateinformation");
+        this.emit("updateinformation", data);
     }
 
     /**
@@ -176,8 +186,9 @@ export class TelegramChannel extends EventEmitter {
      * Send a message to the channel
      * @param {string} message
      */
+    @asyncHookedMethod('telegramchannel:message.send', 'message', 'options')
     sendMessage(message, options) {
-        this.waitInformation()
+        return this.waitInformation()
             .then(() => {
                 return this._connector.send(this._chatId, message, options || {});
             });
@@ -287,12 +298,9 @@ export default class TelegramConnection extends EventEmitter {
                 return;
         }
 
-        let data = {
-            id,
-            title,
-            type,
-            updated: now
-        };
+        let data = assignIn({}, chatData, {
+            updated: now,
+        });
 
         channelsInfo.save(data);
         debug.connection("channel info update", data.id, data.title);
