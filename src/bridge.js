@@ -8,12 +8,28 @@ import {EventEmitter} from "events";
 import debugLib from "debug";
 import {assignIn} from "lodash";
 import escapeStringRegExp from "escape-string-regexp";
+import {str as crc32} from 'crc-32';
+import ircColors from 'irc-colors';
 import {syncHookedMethod, asyncHookedMethod} from "./hooks";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
 
 const debug = debugLib("bridge");
+
+const colors =[
+    'navy',
+    'green',
+    'red',
+    'maroom',
+    'violet',
+    'olive',
+    'lime',
+    'teal',
+    'cyan',
+    'blue',
+    'pink',
+];
 
 export const messages = {
     join: "[IRC/{nick} * joined to the channel *]"
@@ -227,6 +243,8 @@ export default class Bridge extends EventEmitter {
             telegramLeft: this._handleTelegramLeft.bind(this),
         };
 
+        this._nickColorCache = [];
+
         this.bind();
 
         return this;
@@ -250,6 +268,34 @@ export default class Bridge extends EventEmitter {
                 let regexp = new RegExp(regexptxt, "g");
                 return message.replace(regexp, `@${name}`);
             }, message);
+    }
+
+    /**
+     * Get a color from username
+     * @param {string} nick
+     * @return {string} Color name
+     */
+    @syncHookedMethod('bridge:get.irc.color', 'nick')
+    _getIrcColor(nick) {
+        let c = this._nickColorCache.find((x) => x.str === nick);
+
+        if (c) {
+            return c.color;
+        }
+
+        let colorIndex = Math.abs(crc32(nick) % colors.length);
+        let color = colors[colorIndex];
+
+        this._nickColorCache.push({
+            str: nick,
+            color,
+        });
+
+        if (this._nickColorCache.length > 30) {
+            this._nickColorCache.shift();
+        }
+
+        return color;
     }
 
     /**
@@ -412,7 +458,18 @@ export default class Bridge extends EventEmitter {
             this._ircChannel.sendMessage(message);
 
         } else {
-            let msg = `[Telegram/@${user.username}] ${message}`;
+            let msg;
+
+            if (this._options.useIrcColors) {
+                let color = this._getIrcColor(user.username);
+                let nick = ircColors[color].bold(
+                     `[Telegram/@${user.username}]`
+                );
+                let txt = ircColors.stripColorsAndStyle(message);
+                msg = `${nick} ${txt}`;
+            } else {
+                msg = `[Telegram/@${user.username}] ${message}`;
+            }
             this._ircChannel.sendMessage(msg);
         }
     }

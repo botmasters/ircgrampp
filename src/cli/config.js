@@ -59,6 +59,7 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
         "irc:secure": config.get("irc:secure") === false ?
                             false :
                             config.get("irc:secure"),
+        "useIrcColors": config.get("useIrcColors") || true,
         "oneConnectionByUser": config.get("oneConnectionByUser") || false,
         "ircScapeCharacter": config.get("ircScapeCharacter") || "",
         "showJoinLeft": config.get("showJoinLeft") || true,
@@ -138,6 +139,12 @@ const generateConfigQuestions = function (defaults = {}, options = {}) {
             name: "oneConnectionByUser",
             message: "Do you use one new IRC connection by telgram user?",
             default: defaultsOptions["oneConnectionByUser"],
+        },
+        {
+            type: "confirm",
+            name: "useIrcColors",
+            message: "Do you use colors in IRC?",
+            default: defaultsOptions["useIrcColors"],
         },
         {
             type: "input",
@@ -411,6 +418,7 @@ const editBridge = function () {
                                 false :
                                 bconfig.get("irc:secure"),
             "oneConnectionByUser": bconfig.get("oneConnectionByUser"),
+            "useIrcColors": bconfig.get("useIrcColors"),
             "ircScapeCharacter": bconfig.get("ircScapeCharacter"),
             "showJoinLeft": bconfig.get("showJoinLeft"),
             "prefix": bconfig.get("prefix"),
