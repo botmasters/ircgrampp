@@ -121,12 +121,16 @@ export class UserBridge extends EventEmitter {
         return channel;
     }
 
+    get originalNick() {
+        return resolveNick(this._userData, this._options);
+    }
+
     /**
      * Final nickname (applied prefix/suffix);
      * @property nick
      */
     get nick() {
-        return resolveNick(this._userData, this._options);
+        return this._ircConnection.nick;
     }
 
     /**

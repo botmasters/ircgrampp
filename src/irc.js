@@ -96,6 +96,7 @@ export class IRCChannel extends EventEmitter {
 
     @asyncHookedMethod('ircchannel:nick.change', 'old', 'new')
     _handleChangeNick(oldNick, newNick) {
+        debug.irc(`Change nick from ${oldNick} to ${newNick}`);
         this._nicks = this._nicks.filter(n => n !== oldNick);
         this._nicks.push(newNick);
     }
@@ -118,7 +119,7 @@ export class IRCChannel extends EventEmitter {
         this._connection.on(`${channel}:action`,
             this._handlers.action);
 
-        this._connection.on("changeMasterNick",
+        this._connection.on("nickchange",
             this._handlers.changeNick);
    
     }
@@ -141,7 +142,7 @@ export class IRCChannel extends EventEmitter {
         this._connection.removeListener(`${channel}:action`,
             this._handlers.action);
 
-        this._connection.removeListener("changeMasterNick",
+        this._connection.removeListener("nickchange",
             this._handlers.changeNick);       
     }
 
@@ -238,7 +239,7 @@ export default class IRCConnection extends EventEmitter {
             this.emit("irc:registered", nick, data);
             let oldNick = this._options.nick;
             this._options.nick = nick;
-            this.emit("changeMasterNick", oldNick, nick);
+            this.emit("nickchange", oldNick, nick);
     }
 
     /**
