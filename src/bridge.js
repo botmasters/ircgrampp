@@ -14,6 +14,7 @@ import {syncHookedMethod, asyncHookedMethod} from "./hooks";
 
 import IRCConnection from "./irc";
 import TelegramConnection from "./telegram";
+import {escapeMarkdown} from './util';
 
 const debug = debugLib("bridge");
 
@@ -375,7 +376,7 @@ export default class Bridge extends EventEmitter {
             message = this._translateIrcNicks(message);
         }
 
-        let msg = `*<${user}>* ${message}`;
+        let msg = `*<${escapeMarkdown(user)}>* ${escapeMarkdown(message)}`;
         this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
@@ -394,7 +395,7 @@ export default class Bridge extends EventEmitter {
             message = this._translateIrcNicks(message);
         }
 
-        let msg = `_*<${user}> ${message}*_`;
+        let msg = `_*${escapeMarkdown(user)}* ${escapeMarkdown(message)}_`;
         this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
     }
 
@@ -409,7 +410,7 @@ export default class Bridge extends EventEmitter {
         debug("irc join", user);
 
         if (this._options.showJoinLeft) {
-            let msg = `_*<${user}> has joined*_`;
+            let msg = `***${escapeMarkdown(user)}*** _has joined_`;
             this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
         }
     }
@@ -426,7 +427,7 @@ export default class Bridge extends EventEmitter {
         debug("irc left", user);
 
         if (this._options.showJoinLeft) {
-            let msg = `_*${user} left the channel*_`;
+            let msg = `***${escapeMarkdown(user)}*** _left the channel_`;
             this._telegramChannel.sendMessage(msg, { "parse_mode": 'markdown' });
         }   
     }
@@ -440,8 +441,9 @@ export default class Bridge extends EventEmitter {
             return;
         }
         debug("irc topic", topic, nick);
-        let msg = `_*<${nick}> changed the topic to: ${topic}*_`;
-        this._telegramChannel.sendMessage(msg);
+        let msg = `***${escapeMarkdown(nick)}*** _changed the topic to:_\n`
+        msg += '```' + topic.replace(/`/g, '\'') + '```';
+        this._telegramChannel.sendMessage(msg, { "parse_mode": "markdown" });
     }
 
     /**
