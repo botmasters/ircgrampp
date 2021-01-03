@@ -1,4 +1,12 @@
 {
-	"presets": [ "es2015" ],
-    "plugins": ["babel-plugin-transform-decorators-legacy"]
+  "plugins": [
+    ["@babel/plugin-proposal-decorators", { "legacy": true }],
+  ],
+  "presets": [
+    ["@babel/preset-env", {
+        "targets": {
+          "node": "12.13.0"
+        }
+    }]
+  ]
 }

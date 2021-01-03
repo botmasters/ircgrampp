@@ -43,7 +43,7 @@ if (UID === 0) {
         } else { 
             homeDir = process.env['HOME'];
         }
-    } else if (process.versions.node.match(/^7\./)) {
+    } else if (process.versions.node.match(/^(:?[789]|10|11|12)\./)) {
         let user = userInfo();
         homeDir = user.homedir;
     } else {

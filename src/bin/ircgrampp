@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-import cli from "../lib/cli";
+const cli = require('../cli').default;
 
 cli(process.argv);
