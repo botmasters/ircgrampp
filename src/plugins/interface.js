@@ -124,7 +124,7 @@ export default class PluginInterface {
         try {
             pluginClass = require(packName).default;
         } catch (e) {
-            throw new Error(`Plugin ${this._name} is not installed`);
+            throw new Error(`Plugin ${name} is not installed`);
         }
 
         /* if (!(pluginClass instanceof PluginBase)) {

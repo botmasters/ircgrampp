@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
-import cli from "../lib/cli/plugins";
+// Fix to https://github.com/yagop/node-telegram-bot-api/issues/484
+process.env["NTBA_FIX_319"] = 1;
+
+const cli = require("../cli/plugins").default;
 
 cli(process.argv);

@@ -5,11 +5,11 @@ module.exports = {
     },
     plugins: [
     ],
-    extends: [
-        "defaults",
-    ],
+    /*    extends: [
+        "eslint:defaults",
+    ],*/
     parserOptions: {
-        ecmaVersion: 6,
+        ecmaVersion: 8,
         sourceType: "module",
         ecmaFeatures: {}
     },
