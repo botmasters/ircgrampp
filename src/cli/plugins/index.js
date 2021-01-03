@@ -37,7 +37,7 @@ program
     .action(searchProgram);
 
 program
-    .command("install")
+    .command("install <plugin>")
     .description("Install new plugin")
     .usage("[options] {name}[@version]")
     .option("--enable", "Enable plugin")
