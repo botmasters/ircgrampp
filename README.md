@@ -63,6 +63,14 @@ You can do pull requests, code revisions, fixes, etc. (all of it is welcomed).
     or
     $ yarn install
 
+## Check and update dependencies 
+
+    $ npm ncu
+    or
+    $ yarn ncu
+
+> [ncu](https://www.npmjs.com/package/npm-check-updates) is a third party tool.
+ 
 ## build
 
     $ npm run build

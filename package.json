@@ -11,6 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "npx eslint ./src",
     "build": "rm -rf ./{lib,bin}/*; npx babel src --out-dir lib --copy-files",
+    "ncu": "npx ncu",
     "prepublishOnly": "npm run build"
   },
   "bin": {
@@ -39,7 +40,8 @@
     "@babel/preset-env": "^7.12.11",
     "babel-eslint": "^10.1.0",
     "eslint": "^7.17.0",
-    "eslint-config-default": "^0.2.1"
+    "eslint-config-default": "^0.2.1",
+    "npm-check-updates": "^10.2.5"
   },
   "dependencies": {
     "bluebird": "^3.5.0",
